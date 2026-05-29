@@ -44,6 +44,7 @@ fs.mkdirSync(resourcesAppDir, { recursive: true });
 
 copyDir(path.join(root, 'electron'), path.join(resourcesAppDir, 'electron'));
 copyDir(path.join(root, 'public'), path.join(resourcesAppDir, 'public'));
+copyDir(path.join(root, 'shared'), path.join(resourcesAppDir, 'shared'));
 copyDir(standaloneDir, path.join(resourcesAppDir, '.next', 'standalone'));
 
 fs.writeFileSync(

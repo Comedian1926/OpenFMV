@@ -4,6 +4,7 @@ import {
   defaultGraphData as createDefaultGraphData,
   ensureGraphData as normalizeGraphData,
 } from './projectPersistence';
+import { classifyAssetSource } from './assetPaths';
 import { saveBrowserAssetFile } from './browserAssets';
 import { decodeTextBuffer } from './textEncoding';
 
@@ -73,29 +74,7 @@ export const isStorageQuotaError = (error: unknown) => {
 };
 
 const isRelativeAssetPath = (value: unknown) => {
-  return typeof value === 'string' && value.startsWith('assets/');
-};
-
-const isTrackableAssetPath = (value: unknown): value is string => {
-  return typeof value === 'string' && value.length > 0 && !value.startsWith('blob:');
-};
-
-const assetTypeFromPath = (value: string): OpenFMVAsset['type'] => {
-  const lower = value.split('?')[0].split('#')[0].toLowerCase();
-  if (/\.(mp4|webm|mov|mkv)$/.test(lower)) return 'video';
-  if (/\.(png|jpg|jpeg|gif|webp|bmp)$/.test(lower)) return 'image';
-  if (/\.(mp3|wav|ogg|m4a|aac|flac)$/.test(lower)) return 'audio';
-  return 'text';
-};
-
-const nameFromPath = (value: string, fallback: string) => {
-  try {
-    const pathname = value.startsWith('file:') ? new URL(value).pathname : value;
-    const normalized = decodeURIComponent(pathname.replace(/\\/g, '/'));
-    return normalized.split('/').filter(Boolean).pop() || fallback;
-  } catch {
-    return fallback;
-  }
+  return classifyAssetSource(value) === 'projectAsset';
 };
 
 const toFileUrl = (absolutePath: string) => {

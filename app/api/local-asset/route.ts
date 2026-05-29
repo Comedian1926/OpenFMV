@@ -4,6 +4,8 @@ import path from 'path';
 import { Readable } from 'stream';
 import { fileURLToPath } from 'url';
 
+import { classifyAssetSource } from '@/app/_utils/assetPaths';
+
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
@@ -28,7 +30,12 @@ const resolveLocalPath = (src: string) => {
 
 export async function GET(request: Request) {
   const src = new URL(request.url).searchParams.get('src');
-  if (!src || src.startsWith('data:') || src.startsWith('blob:') || /^https?:\/\//i.test(src)) {
+  if (!src) {
+    return new Response('Invalid asset source', { status: 400 });
+  }
+
+  const sourceKind = classifyAssetSource(src);
+  if (sourceKind !== 'absolutePath' && sourceKind !== 'fileUrl') {
     return new Response('Invalid asset source', { status: 400 });
   }
 

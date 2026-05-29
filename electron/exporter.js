@@ -7,6 +7,7 @@ try {
 const path = require('path');
 const crypto = require('crypto');
 const { fileURLToPath, pathToFileURL } = require('url');
+const { classifyAssetSource, isProjectAssetSourceKind } = require('../shared/assetPaths');
 
 const ensureDir = async (target) => {
   await fs.mkdir(target, { recursive: true });
@@ -17,7 +18,7 @@ let graphRuntimeCorePromise = null;
 
 const getGraphRuntimeCore = () => {
   if (!graphRuntimeCorePromise) {
-    graphRuntimeCorePromise = import(pathToFileURL(path.join(__dirname, '..', 'app', '_utils', 'graphRuntimeCore.mjs')).href);
+    graphRuntimeCorePromise = import(pathToFileURL(path.join(__dirname, '..', 'shared', 'graphRuntimeCore.mjs')).href);
   }
   return graphRuntimeCorePromise;
 };
@@ -69,7 +70,7 @@ const copyElectronRuntime = async (electronRuntimeDir, electronExecutablePath, g
 };
 
 const isLocalFilePath = (value) => {
-  return typeof value === 'string' && value && !value.startsWith('blob:') && !value.startsWith('data:') && !/^https?:\/\//i.test(value);
+  return isProjectAssetSourceKind(classifyAssetSource(value));
 };
 
 const resolveLocalPath = (sourcePath, baseDir) => {
@@ -260,21 +261,43 @@ const createGameShellHtml = (gameJson, graphRuntimeScript = '') => `
   <title>OpenFMV Game</title>
   <style>
     html, body { margin: 0; width: 100%; height: 100%; background: #050505; color: white; font-family: Inter, Arial, sans-serif; overflow: hidden; }
-    #app { position: fixed; inset: 0; display: grid; place-items: center; background: radial-gradient(circle at 50% 20%, rgba(249,115,22,.18), transparent 35%), #050505; }
-    .scene { position: relative; width: 100%; height: 100%; display: grid; place-items: center; }
+    #app { position: fixed; inset: 0; background: linear-gradient(135deg,#090b10,#15110d); }
+    .scene { position: relative; width: 100%; height: 100%; overflow: hidden; background: #000; }
     .media { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; opacity: .9; background: #000; }
-    .shade { position: absolute; inset: 0; background: linear-gradient(to bottom, rgba(0,0,0,.35), rgba(0,0,0,.15), rgba(0,0,0,.72)); }
-    .panel { position: relative; z-index: 2; width: min(880px, calc(100vw - 40px)); max-height: calc(100vh - 80px); overflow: auto; padding: 28px; border: 1px solid rgba(255,255,255,.12); border-radius: 12px; background: rgba(0,0,0,.58); backdrop-filter: blur(16px); box-shadow: 0 24px 90px rgba(0,0,0,.55); }
-    h1 { margin: 0 0 14px; font-size: clamp(28px, 4vw, 56px); }
-    p { color: rgba(255,255,255,.86); font-size: 18px; line-height: 1.7; white-space: pre-wrap; }
-    .actions { display: grid; gap: 12px; margin-top: 24px; }
-    .timer { margin-top: 20px; height: 4px; border-radius: 999px; background: rgba(255,255,255,.16); overflow: hidden; }
+    .shade { position: absolute; inset: 0; background: linear-gradient(to bottom, rgba(0,0,0,.62), rgba(0,0,0,.18), rgba(0,0,0,.88)); }
+    .bottom-glow { position: absolute; inset: auto 0 0; height: 50%; background: radial-gradient(circle at 50% 100%, rgba(249,115,22,.15), transparent 45%); }
+    .content { position: relative; z-index: 2; min-height: 100%; display: flex; flex-direction: column; justify-content: flex-end; box-sizing: border-box; padding: 32px 20px; }
+    .content-inner { width: 100%; max-width: 1024px; margin: 0 auto; }
+    .story-copy { max-width: 768px; margin-bottom: 32px; }
+    .node-type { margin-bottom: 12px; color: #f97316; font-size: 12px; font-weight: 700; letter-spacing: .3em; text-transform: uppercase; }
+    h1 { margin: 0; font-size: clamp(40px, 6vw, 72px); line-height: 1; font-weight: 650; letter-spacing: -.02em; text-shadow: 0 18px 48px rgba(0,0,0,.6); }
+    p { margin: 20px 0 0; color: rgba(255,255,255,.86); font-size: clamp(16px, 2vw, 20px); line-height: 1.8; white-space: pre-wrap; text-shadow: 0 12px 34px rgba(0,0,0,.65); }
+    .controls { width: 100%; max-width: 896px; }
+    .prompt { margin: 0 0 20px; text-align: center; color: white; font-size: clamp(24px, 3vw, 36px); line-height: 1.2; font-weight: 650; text-shadow: 0 14px 40px rgba(0,0,0,.6); }
+    .actions { display: grid; gap: 12px; }
+    .actions-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .actions-single { grid-template-columns: minmax(0, 1fr); }
+    .actions-center { justify-items: center; }
+    .actions-start { justify-items: start; }
+    .action-button { display: flex; min-height: 64px; width: 100%; max-width: 576px; align-items: center; justify-content: space-between; gap: 12px; box-sizing: border-box; border: 1px solid rgba(255,255,255,.15); border-radius: 22px; background: rgba(255,255,255,.1); color: white; padding: 16px 20px; font-size: 18px; text-align: left; box-shadow: 0 18px 60px rgba(0,0,0,.22); backdrop-filter: blur(24px); cursor: pointer; transition: transform .16s ease, border-color .16s ease, background .16s ease; }
+    .action-button:hover { transform: translateY(-2px); border-color: rgba(249,115,22,.7); background: rgba(255,255,255,.16); }
+    .action-label { min-width: 0; overflow-wrap: anywhere; }
+    .action-arrow { flex: none; opacity: .62; transition: transform .16s ease, opacity .16s ease; }
+    .action-button:hover .action-arrow { transform: translateX(4px); opacity: 1; }
+    .input-row { display: flex; max-width: 576px; margin: 0 auto; align-items: center; gap: 8px; box-sizing: border-box; border: 1px solid rgba(255,255,255,.15); border-radius: 999px; background: rgba(255,255,255,.12); padding: 8px; box-shadow: 0 18px 60px rgba(0,0,0,.35); backdrop-filter: blur(24px); }
+    .input-row input { min-width: 0; flex: 1; border: 0; background: transparent; color: white; padding: 12px 16px; font-size: 16px; outline: none; }
+    .input-row input::placeholder { color: rgba(255,255,255,.35); }
+    .icon-button { display: grid; width: 44px; height: 44px; flex: none; place-items: center; border: 0; border-radius: 999px; background: #f97316; color: white; font-size: 18px; cursor: pointer; transition: background .16s ease; }
+    .icon-button:hover { background: #fb923c; }
+    .timer { width: 100%; max-width: 320px; margin: 20px auto 0; height: 6px; border-radius: 999px; background: rgba(255,255,255,.1); overflow: hidden; }
     .timer span { display: block; height: 100%; width: 100%; background: #f97316; transform-origin: left; animation: timer linear forwards; }
     @keyframes timer { from { transform: scaleX(1); } to { transform: scaleX(0); } }
-    button, input { border: 1px solid rgba(255,255,255,.16); border-radius: 10px; background: rgba(255,255,255,.08); color: white; padding: 13px 16px; font-size: 15px; }
-    button { cursor: pointer; text-align: left; }
-    button:hover { border-color: rgba(249,115,22,.8); background: rgba(249,115,22,.18); }
-    input { width: calc(100% - 34px); outline: none; }
+    @media (max-width: 720px) {
+      .content { padding: 28px 20px; }
+      .actions-grid { grid-template-columns: 1fr; }
+      .action-button { max-width: none; }
+      h1 { font-size: clamp(34px, 12vw, 56px); }
+    }
   </style>
 </head>
 <body>
@@ -317,19 +340,23 @@ const createGameShellHtml = (gameJson, graphRuntimeScript = '') => `
       }
     };
 
+    const promptHtml = (node) => node.data && node.data.prompt ? '<h2 class="prompt">' + escapeHtml(node.data.prompt) + '</h2>' : '';
+
     const renderActions = (node) => {
-      if (node.type === 'end') return '<button data-end="1">Restart</button>';
+      if (node.type === 'end') return '<div class="actions actions-single actions-start"><button class="action-button" data-end="1"><span class="action-label">重新开始</span><span class="action-arrow">↻</span></button></div>';
       if (graphRuntime.shouldShowRuntimeControls(node, graph.edges)) {
         const mode = graphRuntime.getRuntimeInteractionMode(node);
         if (mode === 'input') {
-          return '<input id="answer" placeholder="' + escapeHtml(node.data.buttonText || 'Type your answer') + '" /><button data-input="1">Submit</button>';
+          return '<div class="controls">' + promptHtml(node) + '<div class="input-row"><input id="answer" placeholder="' + escapeHtml(node.data.buttonText || '输入你的回答...') + '" /><button class="icon-button" data-input="1">→</button></div></div>';
         }
         if (mode === 'slider') {
-          return '<button data-slider="1" data-handle="slider">' + escapeHtml((node.data.sliderConfig && node.data.sliderConfig.label) || '滑动解锁') + '</button>';
+          return '<div class="controls">' + promptHtml(node) + '<div class="actions actions-single actions-center"><button class="action-button" data-slider="1" data-handle="slider"><span class="action-label">' + escapeHtml((node.data.sliderConfig && node.data.sliderConfig.label) || '滑动解锁') + '</span><span class="action-arrow">→</span></button></div></div>';
         }
-        return graphRuntime.getRuntimeChoiceRules(node).map((rule) => '<button data-choice-input="' + escapeHtml(rule.condition || rule.keyword || '') + '" data-handle="' + escapeHtml(rule.handleId || '') + '">' + escapeHtml(rule.condition || rule.keyword || '选项') + '</button>').join('');
+        const rules = graphRuntime.getRuntimeChoiceRules(node);
+        const actionClass = rules.length > 1 ? 'actions actions-grid' : 'actions actions-single actions-center';
+        return '<div class="controls">' + promptHtml(node) + '<div class="' + actionClass + '">' + rules.map((rule) => '<button class="action-button" data-choice-input="' + escapeHtml(rule.condition || rule.keyword || '') + '" data-handle="' + escapeHtml(rule.handleId || '') + '"><span class="action-label">' + escapeHtml(rule.condition || rule.keyword || '选项') + '</span><span class="action-arrow">→</span></button>').join('') + '</div></div>';
       }
-      return '<button data-next="1">Continue</button>';
+      return '<div class="actions actions-single actions-start"><button class="action-button" data-next="1"><span class="action-label">继续</span><span class="action-arrow">→</span></button></div>';
     };
 
     const render = () => {
@@ -338,7 +365,7 @@ const createGameShellHtml = (gameJson, graphRuntimeScript = '') => `
         countdownTimer = null;
       }
       if (!current) {
-        appRoot.innerHTML = '<div class="panel"><h1>播放结束</h1><div class="actions"><button data-end="1">重新开始</button></div></div>';
+        appRoot.innerHTML = '<div class="scene"><div class="shade"></div><div class="bottom-glow"></div><main class="content"><div class="content-inner"><div class="story-copy"><h1>播放结束</h1></div><div class="actions actions-single actions-start"><button class="action-button" data-end="1"><span class="action-label">重新开始</span><span class="action-arrow">↻</span></button></div></div></main></div>';
         appRoot.querySelector('[data-end]')?.addEventListener('click', () => go(entryNodeId()));
         return;
       }
@@ -349,7 +376,9 @@ const createGameShellHtml = (gameJson, graphRuntimeScript = '') => `
           : '';
       const timeLimit = Number(current.data.timeLimit) || 0;
       const timer = timeLimit > 0 ? '<div class="timer"><span style="animation-duration:' + timeLimit + 's"></span></div>' : '';
-      appRoot.innerHTML = '<div class="scene">' + media + '<div class="shade"></div><div class="panel"><h1>' + escapeHtml(graphRuntime.getNodeTitle(current)) + '</h1><p>' + escapeHtml(graphRuntime.getNodeText(current)) + '</p><div class="actions">' + renderActions(current) + '</div>' + timer + '</div></div>';
+      const text = graphRuntime.getNodeText(current);
+      const storyCopy = '<div class="story-copy"><div class="node-type">' + escapeHtml(current.type) + '</div><h1>' + escapeHtml(graphRuntime.getNodeTitle(current)) + '</h1>' + (text ? '<p>' + escapeHtml(text) + '</p>' : '') + '</div>';
+      appRoot.innerHTML = '<div class="scene">' + media + '<div class="shade"></div><div class="bottom-glow"></div><main class="content"><div class="content-inner">' + storyCopy + renderActions(current) + timer + '</div></main></div>';
       if (timeLimit > 0 && current.type !== 'end') {
         countdownTimer = setTimeout(() => nextFrom(current), timeLimit * 1000);
       }
@@ -388,7 +417,7 @@ const createGameShellHtml = (gameJson, graphRuntimeScript = '') => `
       current = findNode(entryNodeId());
       render();
     } catch (error) {
-      appRoot.innerHTML = '<div class="panel"><h1>Unable to load game data</h1></div>';
+      appRoot.innerHTML = '<div class="scene"><div class="shade"></div><main class="content"><div class="content-inner"><div class="story-copy"><h1>Unable to load game data</h1></div></div></main></div>';
     }
   </script>
 </body>
@@ -418,6 +447,7 @@ const exportGamePackage = async ({ project, config, electronExecutablePath, elec
 
   for (const asset of assets) {
     if (!asset.path) continue;
+    if (!isLocalFilePath(asset.path)) continue;
     try {
       const relativePath = await copyExportAsset(asset.path, resourcesAssetsDir, usedNames, baseDir);
       pathMap.set(asset.path, relativePath);

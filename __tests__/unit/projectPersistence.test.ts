@@ -11,7 +11,7 @@ const storyNode: AppNode = {
   id: 'story',
   type: 'story',
   position: { x: 0, y: 0 },
-  data: { type: 'story', title: 'Story', content: '', image: 'scene.png' },
+  data: { type: 'story', title: 'Story', content: '', image: 'assets/scene.png' },
 };
 
 describe('projectPersistence', () => {
@@ -44,8 +44,35 @@ describe('projectPersistence', () => {
     expect(assets[0]).toMatchObject({
       type: 'image',
       name: 'scene.png',
-      path: 'scene.png',
+      path: 'assets/scene.png',
     });
+  });
+
+  it('does not index transient, remote, data, or unknown asset sources', () => {
+    const assets = collectProjectAssetsFromGraph({
+      nodes: [
+        {
+          ...storyNode,
+          data: {
+            ...storyNode.data,
+            image: 'blob:http://localhost/1',
+            video: 'data:video/mp4;base64,AAAA',
+            videoThumbnail: 'https://example.com/poster.png',
+          },
+        },
+        {
+          ...storyNode,
+          id: 'unknown-relative',
+          data: {
+            ...storyNode.data,
+            image: 'scene.png',
+          },
+        },
+      ],
+      edges: [],
+    });
+
+    expect(assets).toEqual([]);
   });
 
   it('creates a project snapshot with normalized graph, entry node, cover and existing assets', () => {
@@ -54,7 +81,7 @@ describe('projectPersistence', () => {
       id: 'project',
       title: 'Old',
       graphData: { nodes: [], edges: [] },
-      assets: [{ id: 'existing', type: 'image', name: 'Existing', path: 'scene.png', relativePath: 'scene.png', importedAt: '2026-01-01T00:00:00.000Z' }],
+      assets: [{ id: 'existing', type: 'image', name: 'Existing', path: 'assets/scene.png', relativePath: 'assets/scene.png', importedAt: '2026-01-01T00:00:00.000Z' }],
       metadata: {},
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-01T00:00:00.000Z',
@@ -65,7 +92,7 @@ describe('projectPersistence', () => {
     expect(snapshot.title).toBe('Next');
     expect(snapshot.graphData.nodes).toEqual([storyNode]);
     expect(snapshot.assets).toEqual(project.assets);
-    expect(snapshot.metadata.coverImage).toBe('scene.png');
+    expect(snapshot.metadata.coverImage).toBe('assets/scene.png');
     expect(snapshot.metadata.entryNodeId).toBe('story');
   });
 });

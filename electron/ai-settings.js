@@ -3,107 +3,33 @@ const fs = require('fs/promises');
 const fsSync = require('fs');
 const os = require('os');
 const path = require('path');
+const {
+  agentDefinitions: sharedAgentDefinitions,
+  byokProviderDefinitions,
+  mediaProviderDefinitions,
+  getDefaultAiConfig,
+  normalizeAiConfig,
+} = require('../shared/ai-definitions');
 
-const agentDefinitions = [
-  { id: 'codex', name: 'Codex CLI', bin: 'codex', versionArgs: ['--version'], testArgs: ['--version'], fallbackModels: ['codex-default'], reasoningOptions: ['minimal', 'low', 'medium', 'high'], stdinPrompt: true, useOutputLastMessage: true, chatArgs: ({ model, reasoningEffort, outputPath }) => ['exec', ...(model && model !== 'codex-default' ? ['--model', model] : []), '--sandbox', 'read-only', '-c', 'approval_policy="never"', '--ephemeral', ...(reasoningEffort ? ['-c', `model_reasoning_effort="${reasoningEffort}"`] : []), ...(outputPath ? ['--output-last-message', outputPath] : []), '-'] },
-  { id: 'claude', name: 'Claude Code', bin: 'claude', versionArgs: ['--version'], testArgs: ['--version'], fallbackModels: ['claude-sonnet-4.5', 'claude-opus-4.1', 'claude-haiku-4.5'], chatArgs: ({ model, prompt }) => ['-p', prompt, '--model', model] },
-  { id: 'gemini', name: 'Gemini CLI', bin: 'gemini', versionArgs: ['--version'], testArgs: ['--version'], fallbackModels: ['gemini-2.5-pro', 'gemini-2.5-flash'], chatArgs: ({ model, prompt }) => ['-m', model, '-p', prompt] },
-  { id: 'kimi', name: 'Kimi CLI', bin: 'kimi', versionArgs: ['--version'], testArgs: ['--version'], fallbackModels: ['kimi-k2', 'moonshot-v1-128k'], chatArgs: ({ model, prompt }) => ['--quiet', '--model', model, '--prompt', prompt] },
-  { id: 'qwen', name: 'Qwen CLI', bin: 'qwen', versionArgs: ['--version'], testArgs: ['--version'], fallbackModels: ['qwen3-coder-plus', 'qwen3-max'], chatArgs: ({ model, prompt }) => ['-m', model, '-p', prompt] },
-  { id: 'opencode', name: 'OpenCode', bin: 'opencode', versionArgs: ['--version'], testArgs: ['--version'], fallbackModels: ['opencode-default'], chatArgs: ({ prompt }) => ['run', prompt] },
-];
-
-const byokProviderDefinitions = [
-  { id: 'anthropic', defaultBaseUrl: 'https://api.anthropic.com', defaultModel: 'claude-sonnet-4.5', needsKey: true },
-  { id: 'openai-compatible', defaultBaseUrl: 'https://api.openai.com/v1', defaultModel: 'gpt-5', needsKey: true },
-  { id: 'google-gemini', defaultBaseUrl: 'https://generativelanguage.googleapis.com', defaultModel: 'gemini-2.5-pro', needsKey: true },
-  { id: 'ollama', defaultBaseUrl: 'http://127.0.0.1:11434/v1', defaultModel: 'llama3.1', needsKey: false },
-];
-
-const mediaProviderDefinitions = [
-  { id: 'openai-image', defaultBaseUrl: 'https://api.openai.com/v1', defaultModel: 'gpt-image-1' },
-  { id: 'doubao-image', defaultBaseUrl: 'https://ark.cn-beijing.volces.com/api/v3', defaultModel: 'doubao-seedream-4-0' },
-  { id: 'doubao-video', defaultBaseUrl: 'https://ark.cn-beijing.volces.com/api/v3', defaultModel: 'doubao-seedance-1-0-pro' },
-  { id: 'google-imagen', defaultBaseUrl: 'https://generativelanguage.googleapis.com', defaultModel: 'imagen-4.0-generate-preview-06-06' },
-  { id: 'google-veo', defaultBaseUrl: 'https://generativelanguage.googleapis.com', defaultModel: 'veo-3.1-generate-preview' },
-  { id: 'kling-video', defaultBaseUrl: 'https://api.klingai.com', defaultModel: 'kling-v1-6' },
-  { id: 'minimax-video', defaultBaseUrl: 'https://api.minimax.io/v1', defaultModel: 'video-01' },
-  { id: 'minimax-tts', defaultBaseUrl: 'https://api.minimax.io/v1', defaultModel: 'speech-02-hd' },
-  { id: 'elevenlabs-audio', defaultBaseUrl: 'https://api.elevenlabs.io/v1', defaultModel: 'eleven_multilingual_v2' },
-  { id: 'senseaudio', defaultBaseUrl: '', defaultModel: 'senseaudio-small' },
-];
-
-const agentIds = new Set(agentDefinitions.map((item) => item.id));
-const byokIds = new Set(byokProviderDefinitions.map((item) => item.id));
 const mediaIds = new Set(mediaProviderDefinitions.map((item) => item.id));
 
 const isRecord = (value) => typeof value === 'object' && value !== null;
 const textValue = (value) => typeof value === 'string' ? value : '';
 
-const getDefaultAiConfig = () => ({
-  executionMode: 'cli',
-  selectedCliAgentId: 'codex',
-  cliSelections: agentDefinitions.map((agent) => ({
-    agentId: agent.id,
-    model: agent.fallbackModels[0],
-    ...(agent.reasoningOptions ? { reasoningEffort: 'medium' } : {}),
-  })),
-  selectedByokProviderId: 'anthropic',
-  byokProviders: byokProviderDefinitions.map((provider) => ({
-    providerId: provider.id,
-    apiKey: '',
-    baseUrl: provider.defaultBaseUrl,
-    model: provider.defaultModel,
-  })),
-  mediaProviders: mediaProviderDefinitions.map((provider) => ({
-    providerId: provider.id,
-    apiKey: '',
-    baseUrl: provider.defaultBaseUrl,
-    model: provider.defaultModel,
-  })),
-});
-
-const normalizeAiConfig = (value) => {
-  const defaults = getDefaultAiConfig();
-  if (!isRecord(value)) return defaults;
-  const rawCliSelections = Array.isArray(value.cliSelections) ? value.cliSelections.filter(isRecord) : [];
-  const rawByokProviders = Array.isArray(value.byokProviders) ? value.byokProviders.filter(isRecord) : [];
-  const rawMediaProviders = Array.isArray(value.mediaProviders) ? value.mediaProviders.filter(isRecord) : [];
-
-  return {
-    executionMode: 'cli',
-    selectedCliAgentId: agentIds.has(value.selectedCliAgentId) ? value.selectedCliAgentId : defaults.selectedCliAgentId,
-    selectedByokProviderId: byokIds.has(value.selectedByokProviderId) ? value.selectedByokProviderId : defaults.selectedByokProviderId,
-    cliSelections: defaults.cliSelections.map((fallback) => {
-      const incoming = rawCliSelections.find((item) => item.agentId === fallback.agentId);
-      const definition = agentDefinitions.find((item) => item.id === fallback.agentId);
-      const incomingReasoning = textValue(incoming?.reasoningEffort);
-      return {
-        agentId: fallback.agentId,
-        model: definition?.fallbackModels.includes(textValue(incoming?.model)) ? textValue(incoming?.model) : fallback.model,
-        ...(definition?.reasoningOptions ? { reasoningEffort: definition.reasoningOptions.includes(incomingReasoning) ? incomingReasoning : fallback.reasoningEffort } : {}),
-      };
-    }),
-    byokProviders: defaults.byokProviders.map((fallback) => {
-      const incoming = rawByokProviders.find((item) => item.providerId === fallback.providerId);
-      return {
-        providerId: fallback.providerId,
-        apiKey: textValue(incoming?.apiKey),
-        baseUrl: textValue(incoming?.baseUrl) || fallback.baseUrl,
-        model: textValue(incoming?.model) || fallback.model,
-      };
-    }),
-    mediaProviders: defaults.mediaProviders.map((fallback) => {
-      const incoming = rawMediaProviders.find((item) => item.providerId === fallback.providerId);
-      return {
-        providerId: fallback.providerId,
-        apiKey: textValue(incoming?.apiKey),
-        baseUrl: textValue(incoming?.baseUrl) || fallback.baseUrl,
-        model: textValue(incoming?.model) || fallback.model,
-      };
-    }),
-  };
+const agentRuntimeById = {
+  codex: { versionArgs: ['--version'], testArgs: ['--version'], stdinPrompt: true, useOutputLastMessage: true, chatArgs: ({ model, reasoningEffort, outputPath }) => ['exec', ...(model && model !== 'codex-default' ? ['--model', model] : []), '--sandbox', 'read-only', '-c', 'approval_policy="never"', '--ephemeral', ...(reasoningEffort ? ['-c', `model_reasoning_effort="${reasoningEffort}"`] : []), ...(outputPath ? ['--output-last-message', outputPath] : []), '-'] },
+  claude: { versionArgs: ['--version'], testArgs: ['--version'], chatArgs: ({ model, prompt }) => ['-p', prompt, '--model', model] },
+  gemini: { versionArgs: ['--version'], testArgs: ['--version'], chatArgs: ({ model, prompt }) => ['-m', model, '-p', prompt] },
+  kimi: { versionArgs: ['--version'], testArgs: ['--version'], chatArgs: ({ model, prompt }) => ['--quiet', '--model', model, '--prompt', prompt] },
+  qwen: { versionArgs: ['--version'], testArgs: ['--version'], chatArgs: ({ model, prompt }) => ['-m', model, '-p', prompt] },
+  opencode: { versionArgs: ['--version'], testArgs: ['--version'], chatArgs: ({ prompt }) => ['run', prompt] },
 };
+
+const agentDefinitions = sharedAgentDefinitions.map((agent) => ({
+  ...agent,
+  fallbackModels: agent.models,
+  ...agentRuntimeById[agent.id],
+}));
 
 const getConfigPath = (app) => path.join(app.getPath('userData'), 'config', 'ai-settings.json');
 
@@ -332,16 +258,16 @@ const detectAiAgents = async () => {
 
 const testAiAgent = async (agentId) => {
   const agent = agentDefinitions.find((item) => item.id === agentId);
-  if (!agent) return { ok: false, message: '鏈煡 CLI' };
+  if (!agent) return { ok: false, message: 'Unknown CLI' };
   const executable = await findExecutable(agent.bin);
-  if (!executable) return { ok: false, message: '鏈湪 PATH 涓壘鍒板彲鎵ц鏂囦欢' };
+  if (!executable) return { ok: false, message: 'Executable not found in PATH' };
   const result = await runCommand(executable, agent.testArgs, 5000);
   return result.ok ? { ok: true, message: result.output || 'CLI available' } : { ok: false, message: result.output || 'CLI test failed' };
 };
 
 const probeUrl = async (baseUrl, apiKey) => {
   if (!baseUrl) return { ok: true, message: 'Configuration looks valid' };
-  if (typeof fetch !== 'function') return { ok: true, message: '閰嶇疆褰㈡€佹湁鏁堬紝褰撳墠杩愯鏃朵笉鏀寔 HTTP 鎺㈡祴' };
+  if (typeof fetch !== 'function') return { ok: true, message: 'Configuration shape is valid, but this runtime cannot probe HTTP.' };
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 3500);
   try {
@@ -363,16 +289,16 @@ const probeUrl = async (baseUrl, apiKey) => {
 const testByokProvider = async (provider) => {
   const normalized = normalizeAiConfig({ byokProviders: [provider] }).byokProviders.find((item) => item.providerId === provider?.providerId);
   const definition = byokProviderDefinitions.find((item) => item.id === normalized?.providerId);
-  if (!definition || !normalized) return { ok: false, message: '鏈煡 Provider' };
+  if (!definition || !normalized) return { ok: false, message: 'Unknown provider' };
   if (!normalized.model) return { ok: false, message: 'Enter a model name' };
-  if (definition.needsKey && !normalized.apiKey) return { ok: false, message: '璇峰～鍐?API Key' };
+  if (definition.needsKey && !normalized.apiKey) return { ok: false, message: 'Enter API key' };
   return probeUrl(normalized.baseUrl, normalized.apiKey);
 };
 
 const testMediaProvider = async (provider) => {
   const normalized = normalizeAiConfig({ mediaProviders: [provider] }).mediaProviders.find((item) => item.providerId === provider?.providerId);
-  if (!normalized || !mediaIds.has(normalized.providerId)) return { ok: false, message: '鏈煡 Provider' };
-  if (!normalized.apiKey) return { ok: false, message: '璇峰～鍐?API Key' };
+  if (!normalized || !mediaIds.has(normalized.providerId)) return { ok: false, message: 'Unknown provider' };
+  if (!normalized.apiKey) return { ok: false, message: 'Enter API key' };
   if (!normalized.model) return { ok: false, message: 'Enter a default model' };
   return probeUrl(normalized.baseUrl, normalized.apiKey);
 };

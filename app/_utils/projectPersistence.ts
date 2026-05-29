@@ -1,4 +1,5 @@
 import { AppEdge, AppNode, OpenFMVAsset, OpenFMVGraph, OpenFMVProject } from '../_types';
+import { classifyAssetSource, isProjectAssetSourceKind } from './assetPaths';
 import { getEntryNodeId } from './graphRuntime';
 
 export const defaultGraphData = (): OpenFMVGraph => ({
@@ -25,10 +26,6 @@ export const ensureGraphData = (graphData?: Partial<OpenFMVGraph> | null): OpenF
 };
 
 const now = () => new Date().toISOString();
-
-const isTrackableAssetPath = (value: unknown): value is string => {
-  return typeof value === 'string' && value.length > 0 && !value.startsWith('blob:');
-};
 
 const assetTypeFromPath = (value: string): OpenFMVAsset['type'] => {
   const lower = value.split('?')[0].split('#')[0].toLowerCase();
@@ -59,7 +56,8 @@ export const collectProjectAssetsFromGraph = (
   }
 
   const addAsset = (value: unknown, label: string) => {
-    if (!isTrackableAssetPath(value)) return;
+    const sourceKind = classifyAssetSource(value);
+    if (typeof value !== 'string' || !isProjectAssetSourceKind(sourceKind)) return;
     if (assetsByPath.has(value)) return;
     assetsByPath.set(value, {
       id: crypto.randomUUID(),

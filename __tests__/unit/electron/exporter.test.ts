@@ -76,6 +76,103 @@ describe('electron game exporter', () => {
     expect(html).toContain('id="game-data"');
     expect(html).toContain('assets/source.png');
     expect(html).not.toContain("fetch('game.json')");
+    expect(html).toContain('class="content"');
+    expect(html).toContain('class="story-copy"');
+    expect(html).not.toContain('class="panel"');
+  });
+
+  it('leaves non-project asset sources out of export copying', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'openfmv-export-sources-'));
+    const localImage = join(root, 'local.png');
+    await writeFile(localImage, Buffer.from([137, 80, 78, 71]));
+
+    const project = {
+      schemaVersion: 1,
+      id: 'project-sources',
+      title: 'Asset Sources',
+      graphData: {
+        nodes: [
+          {
+            id: 'start',
+            type: 'start',
+            position: { x: 0, y: 0 },
+            data: {
+              type: 'start',
+              label: 'Start',
+              image: 'https://example.com/remote.png',
+              video: 'data:video/mp4;base64,AAAA',
+              videoThumbnail: 'blob:http://localhost/thumb',
+            },
+          },
+          {
+            id: 'local',
+            type: 'story',
+            position: { x: 100, y: 0 },
+            data: {
+              type: 'story',
+              title: 'Local',
+              content: '',
+              image: localImage,
+            },
+          },
+        ],
+        edges: [],
+      },
+      assets: [
+        {
+          id: 'remote',
+          type: 'image',
+          name: 'Remote',
+          path: 'https://example.com/remote.png',
+          relativePath: 'https://example.com/remote.png',
+          importedAt: new Date().toISOString(),
+        },
+        {
+          id: 'data',
+          type: 'text',
+          name: 'Data',
+          path: 'data:text/plain;base64,SGVsbG8=',
+          relativePath: 'data:text/plain;base64,SGVsbG8=',
+          importedAt: new Date().toISOString(),
+        },
+        {
+          id: 'local',
+          type: 'image',
+          name: 'Local',
+          path: localImage,
+          relativePath: localImage,
+          importedAt: new Date().toISOString(),
+        },
+      ],
+      metadata: {},
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    const result = await exportGamePackage({
+      project,
+      config: {
+        gameTitle: 'Asset Sources',
+        outputDirectory: root,
+        entryNodeId: 'start',
+        windowMode: 'windowed',
+        resolution: { width: 1280, height: 720 },
+        includeDebugOverlay: false,
+      },
+      isDev: false,
+    });
+
+    const gameJson = JSON.parse(await readFile(join(result.outputDirectory, 'resources', 'app', 'game.json'), 'utf8'));
+
+    expect(gameJson.graphData.nodes[0].data.image).toBe('https://example.com/remote.png');
+    expect(gameJson.graphData.nodes[0].data.video).toBe('data:video/mp4;base64,AAAA');
+    expect(gameJson.graphData.nodes[0].data.videoThumbnail).toBe('blob:http://localhost/thumb');
+    expect(gameJson.graphData.nodes[1].data.image).toBe('assets/local.png');
+    expect(gameJson.assets.find((asset: { id: string; path: string }) => asset.id === 'remote').path).toBe('https://example.com/remote.png');
+    expect(gameJson.assets.find((asset: { id: string; path: string }) => asset.id === 'data').path).toBe('data:text/plain;base64,SGVsbG8=');
+    expect(gameJson.assets.find((asset: { id: string; path: string }) => asset.id === 'local').path).toBe('assets/local.png');
+    await expect(stat(join(result.outputDirectory, 'resources', 'app', 'assets', 'local.png'))).resolves.toBeTruthy();
+    await expect(readdir(join(result.outputDirectory, 'resources', 'app', 'assets'))).resolves.toEqual(['local.png']);
   });
 
   it('renders countdown runtime support for timed interactions', async () => {
@@ -233,9 +330,16 @@ describe('electron game exporter', () => {
     });
 
     const html = await readFile(join(result.outputDirectory, 'resources', 'app', 'index.html'), 'utf8');
-    expect(html).toContain('graphRuntime.getRuntimeChoiceRules(node).map');
+    expect(html).toContain('const rules = graphRuntime.getRuntimeChoiceRules(node)');
+    expect(html).toContain("const actionClass = rules.length > 1 ? 'actions actions-grid' : 'actions actions-single actions-center'");
     expect(html).toContain('data-choice-input');
     expect(html).toContain('button.dataset.choiceInput');
+    expect(html).toContain('actions actions-grid');
+    expect(html).toContain('actions actions-single actions-center');
+    expect(html).toContain('actions actions-single actions-start');
+    expect(html).toContain('class="action-button"');
+    expect(html).toContain('class="action-arrow"');
+    expect(html).toContain('<main class="content">');
     expect(html).toContain('播放结束');
   });
 
