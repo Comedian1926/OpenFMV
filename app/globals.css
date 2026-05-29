@@ -1,0 +1,196 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 222 43% 5%;
+  --foreground: 220 30% 97%;
+  --card: 224 25% 10%;
+  --card-foreground: 220 30% 97%;
+  --popover: 224 25% 10%;
+  --popover-foreground: 220 30% 97%;
+  --primary: 24 95% 53%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 220 17% 17%;
+  --secondary-foreground: 220 30% 97%;
+  --muted: 220 15% 18%;
+  --muted-foreground: 220 13% 68%;
+  --accent: 24 95% 53%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 220 15% 25%;
+  --input: 220 15% 25%;
+  --ring: 24 95% 53%;
+  --radius: 0.625rem;
+  --accent-primary: #f97316;
+  --accent-primary-rgb: 249 115 22;
+  --accent-hover: #ea580c;
+  --accent-hover-rgb: 234 88 12;
+  --accent-dim: #3b2413;
+  --accent-dim-rgb: 59 36 19;
+  --bg-canvas: #020202;
+  --bg-canvas-rgb: 2 2 2;
+  --bg-sidebar: #151923;
+  --bg-sidebar-rgb: 21 25 35;
+  --bg-node: #171b24;
+  --bg-node-rgb: 23 27 36;
+  --bg-node-header: #1d2330;
+  --bg-node-header-rgb: 29 35 48;
+  --border-node: #3a4250;
+  --border-node-rgb: 58 66 80;
+  --border-divider: #2b3340;
+  --border-divider-rgb: 43 51 64;
+  --text-main: #f5f7fb;
+  --text-main-rgb: 245 247 251;
+  --text-sub: #c6ceda;
+  --text-sub-rgb: 198 206 218;
+  --text-muted: #7f8898;
+  --text-muted-rgb: 127 136 152;
+  --grid-dots: #2a3140;
+  --shadow-node: 0 28px 90px rgba(0, 0, 0, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  --success: #30d158;
+  --danger: #ff453a;
+}
+
+html,
+body {
+  min-height: 100%;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", sans-serif;
+  color: var(--text-main);
+  background:
+    radial-gradient(circle at 14% 8%, rgba(249, 115, 22, 0.28), transparent 30%),
+    radial-gradient(circle at 78% 6%, rgba(251, 146, 60, 0.16), transparent 34%),
+    radial-gradient(circle at 50% 92%, rgba(245, 158, 11, 0.10), transparent 34%),
+    linear-gradient(135deg, #111827 0%, #070a12 52%, #111318 100%);
+}
+
+button,
+input,
+textarea,
+select {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
+}
+
+.openfmv-infinite-canvas {
+  background:
+    radial-gradient(circle at 18% 10%, rgba(56, 189, 248, 0.05), transparent 24%),
+    radial-gradient(circle at 84% 18%, rgba(249, 115, 22, 0.04), transparent 26%),
+    linear-gradient(180deg, #020202 0%, #050505 100%);
+}
+
+.openfmv-infinite-canvas::before {
+  position: absolute;
+  inset: 0;
+  content: "";
+  pointer-events: none;
+  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.18) 1px, transparent 1px);
+  background-size: 32px 32px;
+  opacity: 0.58;
+  mask-image: radial-gradient(circle at center, black 0%, black 62%, transparent 100%);
+}
+
+.openfmv-flow-surface {
+  background: transparent !important;
+}
+
+.react-flow__background {
+  opacity: 0.22;
+}
+
+.react-flow__edge-path {
+  stroke: rgba(255, 255, 255, 0.42);
+  stroke-width: 2;
+  transition: stroke 0.2s, stroke-width 0.2s;
+}
+
+.react-flow__edge.selected .react-flow__edge-path {
+  stroke: var(--accent-primary) !important;
+  stroke-width: 3;
+}
+
+.react-flow__minimap {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(255, 255, 255, 0.16) !important;
+  border-radius: 24px !important;
+  overflow: hidden;
+  box-shadow: 0 20px 80px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255,255,255,0.1);
+  backdrop-filter: blur(28px) saturate(170%);
+}
+
+.react-flow__minimap-mask {
+  fill: rgba(var(--bg-node-rgb), 0.58) !important;
+  opacity: 0.68;
+}
+
+.react-flow__attribution {
+  display: none !important;
+}
+
+.react-flow__node {
+  color: var(--text-main);
+}
+
+.react-flow__node.selected > div > div:first-child,
+.react-flow__node:focus > div > div:first-child {
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.48), 0 0 0 7px rgba(255, 255, 255, 0.08), var(--shadow-node);
+}
+
+.asset-studio-canvas .tl-container,
+.asset-studio-canvas .tl-theme__dark,
+.asset-studio-canvas .tl-theme__light {
+  --tl-color-background: transparent;
+  --tl-color-selection-stroke: rgba(249, 115, 22, 0.98);
+  --tl-color-selection-fill: rgba(249, 115, 22, 0.14);
+  background: transparent !important;
+}
+
+.asset-studio-canvas .tl-background {
+  background: transparent !important;
+}
+
+.asset-studio-canvas .tl-watermark_SEE-LICENSE {
+  color: rgba(255, 255, 255, 0.36);
+}
+
+.glass-surface {
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(30px) saturate(180%);
+}
+
+.glass-control {
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.1);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(22px) saturate(170%);
+}
+
+::selection {
+  color: #fff;
+  background: rgba(var(--accent-primary-rgb), 0.8);
+}
+
+::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(var(--bg-canvas-rgb), 0.42);
+}
+
+::-webkit-scrollbar-thumb {
+  border: 2px solid rgba(var(--bg-canvas-rgb), 0.42);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.22);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(var(--accent-primary-rgb), 0.62);
+}
+

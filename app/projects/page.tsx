@@ -1,0 +1,5 @@
+import LocalProjectsClient from '../_components/local/LocalProjectsClient';
+
+export default function ProjectsPage() {
+  return <LocalProjectsClient />;
+}
