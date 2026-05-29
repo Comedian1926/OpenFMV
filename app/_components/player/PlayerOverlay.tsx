@@ -8,7 +8,7 @@ import { usePlayerStore } from '../../_store/usePlayerStore';
 import { useRuntimeGraphStore } from '../../_store/useRuntimeGraphStore';
 import OpenFMVVideo from '../video/OpenFMVVideo';
 import { SwipeUnlock } from './interactions';
-import { getNodeText, getNodeTitle, getOutgoingEdges, getVisibleRules, resolveNextNodeId } from '../../_utils/graphRuntime';
+import { getNodeText, getNodeTitle, getRuntimeChoiceRules, getRuntimeInteractionMode, resolveNextNodeId, shouldShowRuntimeControls } from '../../_utils/graphRuntime';
 
 const Countdown = ({ seconds, countdownKey, onTimeout }: { seconds?: number; countdownKey: string; onTimeout: () => void }) => {
   const normalizedSeconds = Math.max(0, Math.floor(Number(seconds) || 0));
@@ -47,8 +47,8 @@ const Countdown = ({ seconds, countdownKey, onTimeout }: { seconds?: number; cou
 
 const InteractionControls = ({ node, edges, onNavigate }: { node: AppNode; edges: AppEdge[]; onNavigate: (targetNodeId: string | null) => void }) => {
   const data = node.data as Record<string, any>;
-  const rules = getVisibleRules(node);
-  const mode = data.interactionMode === 'input' || data.interactionMode === 'slider' ? data.interactionMode : 'choice';
+  const rules = getRuntimeChoiceRules(node);
+  const mode = getRuntimeInteractionMode(node);
   const [inputValue, setInputValue] = useState('');
 
   const goNext = useCallback((input?: string, handleId?: string) => onNavigate(resolveNextNodeId(node, edges, { input, handleId })), [edges, node, onNavigate]);
@@ -66,7 +66,7 @@ const InteractionControls = ({ node, edges, onNavigate }: { node: AppNode; edges
         </div>
       ) : (
         <div className={`grid gap-3 ${rules.length > 1 ? 'sm:grid-cols-2' : 'grid-cols-1 place-items-center'}`}>
-          {(rules.length > 0 ? rules : [{ id: 'continue', keyword: '继续', condition: '继续', handleId: '' }]).map((rule) => (
+          {rules.map((rule) => (
             <button key={rule.id} onClick={() => goNext(rule.condition || rule.keyword, rule.handleId)} className="group flex min-h-16 w-full max-w-xl items-center justify-between gap-3 rounded-[22px] border border-white/15 bg-white/10 px-5 py-4 text-left text-white shadow-[0_18px_60px_rgba(0,0,0,0.22)] backdrop-blur-3xl transition hover:-translate-y-0.5 hover:border-openfmv-accent/70 hover:bg-white/16">
               <span className="min-w-0 break-words text-lg">{rule.condition || rule.keyword || '选项'}</span>
               <ArrowRight size={18} className="shrink-0 opacity-60 transition group-hover:translate-x-1 group-hover:opacity-100" />
@@ -90,7 +90,7 @@ export default function PlayerOverlay() {
   const data = (currentNode?.data || {}) as Record<string, any>;
   const imageSrc = useResolvedMediaSrc(data.image);
   const text = currentNode ? getNodeText(currentNode) : '';
-  const shouldShowControls = currentNode && (currentNode.type === 'interaction' || getOutgoingEdges(currentNode.id, edges).length > 0);
+  const shouldShowControls = shouldShowRuntimeControls(currentNode, edges);
 
   const closePlayer = () => {
     runtimeGraph.resetGraph();

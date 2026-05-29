@@ -1,5 +1,9 @@
 const { spawnSync } = require('child_process');
+const fs = require('fs');
 const path = require('path');
+
+const root = path.join(__dirname, '..');
+const devLockPath = path.join(root, '.openfmv-dev-server.json');
 
 const sanitizePath = (value) => {
   return String(value || '')
@@ -24,5 +28,36 @@ const run = (command, args) => {
   if (result.status !== 0) process.exit(result.status || 1);
 };
 
+const isProcessAlive = (pid) => {
+  if (!Number.isInteger(pid) || pid <= 0) return false;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+const assertNoDevServer = () => {
+  if (!fs.existsSync(devLockPath)) return;
+  let lock;
+  try {
+    lock = JSON.parse(fs.readFileSync(devLockPath, 'utf8'));
+  } catch {
+    fs.rmSync(devLockPath, { force: true });
+    return;
+  }
+
+  if (path.resolve(lock.cwd || '') !== path.resolve(root) || !isProcessAlive(Number(lock.pid))) {
+    fs.rmSync(devLockPath, { force: true });
+    return;
+  }
+
+  console.error(`Refusing to run Next build while the OpenFMV dev server is running (pid ${lock.pid}).`);
+  console.error('Stop npm run dev first; dev and build share .next and running both can break CSS/JS chunks.');
+  process.exit(1);
+};
+
+assertNoDevServer();
 run(process.execPath, ['node_modules/next/dist/bin/next', 'build']);
 run(process.execPath, ['scripts/prepare-standalone.js']);

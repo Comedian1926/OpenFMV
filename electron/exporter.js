@@ -6,11 +6,20 @@ try {
 }
 const path = require('path');
 const crypto = require('crypto');
-const { fileURLToPath } = require('url');
+const { fileURLToPath, pathToFileURL } = require('url');
 
 const ensureDir = async (target) => {
   await fs.mkdir(target, { recursive: true });
   return target;
+};
+
+let graphRuntimeCorePromise = null;
+
+const getGraphRuntimeCore = () => {
+  if (!graphRuntimeCorePromise) {
+    graphRuntimeCorePromise = import(pathToFileURL(path.join(__dirname, '..', 'app', '_utils', 'graphRuntimeCore.mjs')).href);
+  }
+  return graphRuntimeCorePromise;
 };
 
 const sanitizeName = (value) => {
@@ -242,7 +251,7 @@ app.on('window-all-closed', () => {
 });
 `;
 
-const createGameShellHtml = (gameJson) => `
+const createGameShellHtml = (gameJson, graphRuntimeScript = '') => `
 <!doctype html>
 <html>
 <head>
@@ -253,7 +262,7 @@ const createGameShellHtml = (gameJson) => `
     html, body { margin: 0; width: 100%; height: 100%; background: #050505; color: white; font-family: Inter, Arial, sans-serif; overflow: hidden; }
     #app { position: fixed; inset: 0; display: grid; place-items: center; background: radial-gradient(circle at 50% 20%, rgba(249,115,22,.18), transparent 35%), #050505; }
     .scene { position: relative; width: 100%; height: 100%; display: grid; place-items: center; }
-    .media { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: .82; }
+    .media { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; opacity: .9; background: #000; }
     .shade { position: absolute; inset: 0; background: linear-gradient(to bottom, rgba(0,0,0,.35), rgba(0,0,0,.15), rgba(0,0,0,.72)); }
     .panel { position: relative; z-index: 2; width: min(880px, calc(100vw - 40px)); max-height: calc(100vh - 80px); overflow: auto; padding: 28px; border: 1px solid rgba(255,255,255,.12); border-radius: 12px; background: rgba(0,0,0,.58); backdrop-filter: blur(16px); box-shadow: 0 24px 90px rgba(0,0,0,.55); }
     h1 { margin: 0 0 14px; font-size: clamp(28px, 4vw, 56px); }
@@ -271,67 +280,54 @@ const createGameShellHtml = (gameJson) => `
 <body>
   <div id="app"></div>
   <script type="application/json" id="game-data">${escapeScriptJson(gameJson)}</script>
+  <script>${graphRuntimeScript}</script>
   <script>
     const appRoot = document.getElementById('app');
+    const graphRuntime = window.OpenFMVGraphRuntime;
     let graph = null;
     let current = null;
     let variables = {};
     let countdownTimer = null;
 
     const escapeHtml = (value) => String(value || '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
-    const outgoing = (node) => graph.edges.filter((edge) => edge.source === node.id);
-    const findNode = (id) => graph.nodes.find((node) => node.id === id);
-    const textOf = (node) => node.data.fullText || node.data.content || '';
-    const titleOf = (node) => node.type === 'start' ? node.data.label || 'Start' : node.type === 'end' ? node.data.label || 'End' : node.data.title || node.data.prompt || 'Story';
-    const visibleRules = (node) => (node.data.rules || []).filter((rule) => rule.id !== 'else' && rule.handleId !== 'else');
-    const entryNodeId = () => graph.metadata && graph.metadata.entryNodeId && findNode(graph.metadata.entryNodeId)
-      ? graph.metadata.entryNodeId
-      : graph.nodes.find((node) => node.type === 'start')?.id || graph.nodes[0]?.id;
+    const findNode = (id) => graphRuntime.getNodeById(graph.nodes, id);
+    const entryNodeId = () => graphRuntime.getEntryNodeId(graph, graph.metadata && graph.metadata.entryNodeId);
 
     const go = (id) => {
       const next = findNode(id);
-      if (!next) return;
+      if (!next) {
+        finish();
+        return;
+      }
       current = next;
       render();
     };
 
-    const resolveNextNodeId = (node, choice = {}) => {
-      const edges = outgoing(node);
-      if (edges.length === 0) return null;
-      if (choice.handleId) {
-        const exactEdge = edges.find((edge) => edge.sourceHandle === choice.handleId || edge.sourceHandle === String(choice.handleId));
-        if (exactEdge) return exactEdge.target;
-      }
-      const normalizedInput = choice.input ? String(choice.input).trim().toLowerCase() : '';
-      if (normalizedInput) {
-        const matchedRule = visibleRules(node).find((rule) => {
-          const condition = String(rule.condition || rule.keyword || '').toLowerCase();
-          return condition && (normalizedInput.includes(condition) || condition.includes(normalizedInput));
-        });
-        if (matchedRule) {
-          const matchedEdge = edges.find((edge) => edge.sourceHandle === matchedRule.handleId || edge.sourceHandle === String(matchedRule.handleId));
-          if (matchedEdge) return matchedEdge.target;
-        }
-      }
-      return edges.find((edge) => edge.sourceHandle === 'else')?.target || edges[0]?.target || null;
+    const finish = () => {
+      current = null;
+      render();
     };
 
     const nextFrom = (node, choice) => {
-      const targetNodeId = resolveNextNodeId(node, choice);
-      if (targetNodeId) go(targetNodeId);
+      const targetNodeId = graphRuntime.resolveNextNodeId(node, graph.edges, choice);
+      if (targetNodeId) {
+        go(targetNodeId);
+      } else {
+        finish();
+      }
     };
 
     const renderActions = (node) => {
-      const rules = visibleRules(node);
       if (node.type === 'end') return '<button data-end="1">Restart</button>';
-      if (node.type === 'interaction') {
-        if (node.data.interactionMode === 'input') {
+      if (graphRuntime.shouldShowRuntimeControls(node, graph.edges)) {
+        const mode = graphRuntime.getRuntimeInteractionMode(node);
+        if (mode === 'input') {
           return '<input id="answer" placeholder="' + escapeHtml(node.data.buttonText || 'Type your answer') + '" /><button data-input="1">Submit</button>';
         }
-        if (node.data.interactionMode === 'slider') {
-          return '<button data-handle="slider">' + escapeHtml((node.data.sliderConfig && node.data.sliderConfig.label) || 'Slide to unlock') + '</button>';
+        if (mode === 'slider') {
+          return '<button data-slider="1" data-handle="slider">' + escapeHtml((node.data.sliderConfig && node.data.sliderConfig.label) || '滑动解锁') + '</button>';
         }
-        return (rules.length ? rules : [{ condition: 'Continue', handleId: null }]).map((rule) => '<button data-handle="' + escapeHtml(rule.handleId || '') + '">' + escapeHtml(rule.condition || rule.keyword || 'Choice') + '</button>').join('');
+        return graphRuntime.getRuntimeChoiceRules(node).map((rule) => '<button data-choice-input="' + escapeHtml(rule.condition || rule.keyword || '') + '" data-handle="' + escapeHtml(rule.handleId || '') + '">' + escapeHtml(rule.condition || rule.keyword || '选项') + '</button>').join('');
       }
       return '<button data-next="1">Continue</button>';
     };
@@ -342,17 +338,18 @@ const createGameShellHtml = (gameJson) => `
         countdownTimer = null;
       }
       if (!current) {
-        appRoot.innerHTML = '<div class="panel"><h1>Game data not found</h1></div>';
+        appRoot.innerHTML = '<div class="panel"><h1>播放结束</h1><div class="actions"><button data-end="1">重新开始</button></div></div>';
+        appRoot.querySelector('[data-end]')?.addEventListener('click', () => go(entryNodeId()));
         return;
       }
       const media = current.data.video
-        ? '<video class="media" src="' + escapeHtml(current.data.video) + '" autoplay playsinline></video>'
+        ? '<video class="media" src="' + escapeHtml(current.data.video) + '" poster="' + escapeHtml(current.data.videoThumbnail || '') + '" autoplay playsinline controls></video>'
         : current.data.image
           ? '<img class="media" src="' + escapeHtml(current.data.image) + '" />'
           : '';
       const timeLimit = Number(current.data.timeLimit) || 0;
       const timer = timeLimit > 0 ? '<div class="timer"><span style="animation-duration:' + timeLimit + 's"></span></div>' : '';
-      appRoot.innerHTML = '<div class="scene">' + media + '<div class="shade"></div><div class="panel"><h1>' + escapeHtml(titleOf(current)) + '</h1><p>' + escapeHtml(textOf(current)) + '</p><div class="actions">' + renderActions(current) + '</div>' + timer + '</div></div>';
+      appRoot.innerHTML = '<div class="scene">' + media + '<div class="shade"></div><div class="panel"><h1>' + escapeHtml(graphRuntime.getNodeTitle(current)) + '</h1><p>' + escapeHtml(graphRuntime.getNodeText(current)) + '</p><div class="actions">' + renderActions(current) + '</div>' + timer + '</div></div>';
       if (timeLimit > 0 && current.type !== 'end') {
         countdownTimer = setTimeout(() => nextFrom(current), timeLimit * 1000);
       }
@@ -366,13 +363,17 @@ const createGameShellHtml = (gameJson) => `
             go(entryNodeId());
             return;
           }
+          if (button.dataset.slider) {
+            nextFrom(current, { input: 'unlocked', handleId: button.dataset.handle });
+            return;
+          }
           if (button.dataset.input) {
             variables.lastInput = document.getElementById('answer')?.value || '';
             nextFrom(current, { input: variables.lastInput });
             return;
           }
-          if (button.dataset.handle !== undefined && button.dataset.handle !== '') {
-            nextFrom(current, { handleId: button.dataset.handle });
+          if (button.dataset.choiceInput !== undefined) {
+            nextFrom(current, { input: button.dataset.choiceInput, handleId: button.dataset.handle });
             return;
           }
           nextFrom(current);
@@ -455,12 +456,14 @@ const exportGamePackage = async ({ project, config, electronExecutablePath, elec
       includeDebugOverlay: config.includeDebugOverlay,
     },
   }, null, 2);
+  const { buildGraphRuntimeBrowserScript } = await getGraphRuntimeCore();
+  const graphRuntimeScript = buildGraphRuntimeBrowserScript();
 
   await fs.writeFile(path.join(gameDir, 'game.json'), gameJson, 'utf8');
   await fs.writeFile(path.join(resourcesAppDir, 'game.json'), gameJson, 'utf8');
   await fs.writeFile(path.join(resourcesAppDir, 'package.json'), JSON.stringify({ name: 'openfmv-exported-game', main: 'main.js' }, null, 2), 'utf8');
   await fs.writeFile(path.join(resourcesAppDir, 'main.js'), createGameShellMain(config), 'utf8');
-  await fs.writeFile(path.join(resourcesAppDir, 'index.html'), createGameShellHtml(gameJson), 'utf8');
+  await fs.writeFile(path.join(resourcesAppDir, 'index.html'), createGameShellHtml(gameJson, graphRuntimeScript), 'utf8');
 
   await fs.writeFile(path.join(gameDir, 'README.txt'), 'Double-click the game executable in this folder to launch the exported OpenFMV game.', 'utf8');
   return { outputDirectory: gameDir };

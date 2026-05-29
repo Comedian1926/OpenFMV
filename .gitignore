@@ -27,6 +27,7 @@ yarn-error.log*
 raven-dev.log
 raven-dev.err
 raven-dev.log.err
+.openfmv-dev-server.json
 
 # local env files
 .env*.local

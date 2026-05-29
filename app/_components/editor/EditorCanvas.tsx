@@ -52,7 +52,7 @@ const createStoryNodeFromAsset = (asset: PickerAsset, position: { x: number; y: 
 
   const node = createEditorNode('story', getAvailableNodePosition(position, currentNodes), currentNodes);
   const metadata = typeof asset.metadata === 'object' && asset.metadata ? asset.metadata as Record<string, unknown> : {};
-  const title = typeof metadata.title === 'string' ? metadata.title : asset.prompt || '绱犳潗鍓ф儏';
+  const title = typeof metadata.title === 'string' ? metadata.title : asset.prompt || '素材剧情';
   const baseNode = {
     ...node,
     data: {

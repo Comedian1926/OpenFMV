@@ -5,6 +5,8 @@ import { createRequire } from 'module';
 import { pathToFileURL } from 'url';
 import { describe, expect, it } from 'vitest';
 
+import { graphRuntimeFunctionNames } from '@/app/_utils/graphRuntimeCore.mjs';
+
 const require = createRequire(import.meta.url);
 const { exportGamePackage, saveProjectToDirectory } = require('../../../electron/exporter');
 
@@ -119,7 +121,7 @@ describe('electron game exporter', () => {
     expect(main).toContain('frame: false');
   });
 
-  it('exports runtime navigation with input matching and else fallback', async () => {
+  it('exports the shared graph runtime for navigation rules', async () => {
     const root = await mkdtemp(join(tmpdir(), 'openfmv-export-runtime-rules-'));
     const project = {
       schemaVersion: 1,
@@ -174,12 +176,67 @@ describe('electron game exporter', () => {
     });
 
     const html = await readFile(join(result.outputDirectory, 'resources', 'app', 'index.html'), 'utf8');
-    expect(html).toContain('const visibleRules = (node)');
-    expect(html).toContain('const resolveNextNodeId = (node, choice = {})');
+    expect(html).toContain('window.OpenFMVGraphRuntime');
+    for (const functionName of graphRuntimeFunctionNames) {
+      expect(html).toContain(functionName);
+    }
+    expect(html).toContain('graphRuntime.resolveNextNodeId(node, graph.edges, choice)');
+    expect(html).toContain('graphRuntime.shouldShowRuntimeControls(node, graph.edges)');
     expect(html).toContain('normalizedInput.includes(condition) || condition.includes(normalizedInput)');
-    expect(html).toContain("edges.find((edge) => edge.sourceHandle === 'else')?.target");
+    expect(html).toContain("outgoing.find((edge) => edge.sourceHandle === 'else')?.target");
     expect(html).toContain('nextFrom(current, { input: variables.lastInput })');
     expect(html).toContain('go(entryNodeId())');
+  });
+
+  it('uses the shared player control rules for start node choices and terminal fallback', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'openfmv-export-start-rules-'));
+    const project = {
+      schemaVersion: 1,
+      id: 'project-start-rules',
+      title: 'Start Rules',
+      graphData: {
+        nodes: [
+          {
+            id: 'start',
+            type: 'start',
+            position: { x: 0, y: 0 },
+            data: {
+              type: 'start',
+              label: 'Start',
+              rules: [
+                { id: 'intro', keyword: 'intro', condition: 'Watch intro', handleId: 'intro' },
+              ],
+            },
+          },
+        ],
+        edges: [
+          { id: 'intro-edge', source: 'start', sourceHandle: 'intro', target: 'intro-target' },
+        ],
+      },
+      assets: [],
+      metadata: {},
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    const result = await exportGamePackage({
+      project,
+      config: {
+        gameTitle: 'Start Rules',
+        outputDirectory: root,
+        entryNodeId: 'start',
+        windowMode: 'windowed',
+        resolution: { width: 1280, height: 720 },
+        includeDebugOverlay: false,
+      },
+      isDev: false,
+    });
+
+    const html = await readFile(join(result.outputDirectory, 'resources', 'app', 'index.html'), 'utf8');
+    expect(html).toContain('graphRuntime.getRuntimeChoiceRules(node).map');
+    expect(html).toContain('data-choice-input');
+    expect(html).toContain('button.dataset.choiceInput');
+    expect(html).toContain('播放结束');
   });
 
   it('copies packaged electron runtime without leaking editor resources into exported game', async () => {

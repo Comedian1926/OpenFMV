@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { AppEdge, AppNode, OpenFMVGraph } from '@/app/_types';
-import { getEntryNodeId, getNodeText, getNodeTitle, getVisibleRules, resolveNextNodeId } from '@/app/_utils/graphRuntime';
+import { getEntryNodeId, getNodeText, getNodeTitle, getRuntimeChoiceRules, getRuntimeInteractionMode, getVisibleRules, resolveNextNodeId, shouldShowRuntimeControls } from '@/app/_utils/graphRuntime';
 
 const node = (id: string, type: AppNode['type'], data: AppNode['data']): AppNode => ({
   id,
@@ -50,6 +50,19 @@ describe('graphRuntime', () => {
   it('hides else rules from player choices', () => {
     expect(getVisibleRules(interactionNode)).toEqual([
       { id: 'first', keyword: 'left', condition: 'Go left', handleId: 'left' },
+    ]);
+  });
+
+  it('normalizes shared player control state', () => {
+    const edges = [
+      { id: 'story-next', source: 'story', target: 'next-target' },
+    ] as AppEdge[];
+
+    expect(getRuntimeInteractionMode(interactionNode)).toBe('choice');
+    expect(shouldShowRuntimeControls(storyNode, edges)).toBe(true);
+    expect(shouldShowRuntimeControls(storyNode, [])).toBe(false);
+    expect(getRuntimeChoiceRules(node('empty', 'interaction', { type: 'interaction', rules: [] }))).toEqual([
+      { id: 'continue', keyword: '继续', condition: '继续', handleId: '' },
     ]);
   });
 

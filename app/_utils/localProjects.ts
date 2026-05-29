@@ -5,6 +5,7 @@ import {
   ensureGraphData as normalizeGraphData,
 } from './projectPersistence';
 import { saveBrowserAssetFile } from './browserAssets';
+import { decodeTextBuffer } from './textEncoding';
 
 const PROJECTS_KEY = 'openfmv-local-projects';
 const LEGACY_PROJECTS_KEY = ['ra', 'ven-local-projects'].join('');
@@ -108,10 +109,10 @@ const readAsDataUrl = (file: File) => {
       if (typeof reader.result === 'string') {
         resolve(reader.result);
       } else {
-        reject(new Error('鏃犳硶璇诲彇鏈湴鏂囦欢'));
+        reject(new Error('无法读取本地文件'));
       }
     };
-    reader.onerror = () => reject(new Error('鏃犳硶璇诲彇鏈湴鏂囦欢'));
+    reader.onerror = () => reject(new Error('无法读取本地文件'));
     reader.readAsDataURL(file);
   });
 };
@@ -266,10 +267,15 @@ export const exportProjectJson = (project: OpenFMVProject) => {
   const blob = new Blob([JSON.stringify(exportableProject, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
+  const fileName = `${project.title.replace(/[\\/:*?"<>|]+/g, '-') || 'OpenFMVProject'}.openfmv.json`;
   link.href = url;
-  link.download = `${project.title.replace(/[\\/:*?"<>|]+/g, '-') || 'OpenFMVProject'}.openfmv.json`;
+  link.download = fileName;
+  link.style.display = 'none';
+  document.body.appendChild(link);
   link.click();
-  URL.revokeObjectURL(url);
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 0);
+  return fileName;
 };
 
 export const importAssetFromFile = async (file: File): Promise<OpenFMVAsset> => {
@@ -279,7 +285,7 @@ export const importAssetFromFile = async (file: File): Promise<OpenFMVAsset> => 
   }
 
   const isText = file.type.startsWith('text/') || file.name.endsWith('.txt') || file.name.endsWith('.md');
-  const content = isText ? await file.text().catch(() => '') : undefined;
+  const content = isText ? await file.arrayBuffer().then(decodeTextBuffer).catch(() => '') : undefined;
   const assetPath = isText ? await readAsDataUrl(file) : await saveBrowserAssetFile(file);
   return {
     id: crypto.randomUUID(),

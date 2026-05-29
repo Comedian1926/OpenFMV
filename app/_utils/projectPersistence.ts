@@ -114,7 +114,7 @@ export const createProjectSnapshot = (
     metadata: {
       ...baseProject.metadata,
       coverImage: coverImage || baseProject.metadata.coverImage,
-      entryNodeId: getEntryNodeId(graphData, baseProject.metadata.entryNodeId),
+      entryNodeId: getEntryNodeId(graphData, baseProject.metadata.entryNodeId) ?? undefined,
     },
   };
 };

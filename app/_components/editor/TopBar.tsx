@@ -6,7 +6,7 @@ import { useSearchParams } from 'next/navigation';
 import { useEditorStore } from '@/app/_store/useEditorStore';
 import { usePlayerStore } from '@/app/_store/usePlayerStore';
 import { useRuntimeGraphStore } from '@/app/_store/useRuntimeGraphStore';
-import { ensureGraphData, exportProjectJson, getLocalProject, saveLocalProject } from '@/app/_utils/localProjects';
+import { ensureGraphData, getLocalProject, saveLocalProject } from '@/app/_utils/localProjects';
 import { createProjectSnapshot } from '@/app/_utils/projectPersistence';
 import { OpenFMVProject } from '@/app/_types';
 import { Header } from '../ui/Header';
@@ -26,15 +26,23 @@ export default function TopBar() {
   const [title, setTitle] = useState(initialTitleFromQuery || '未命名项目');
   const [isSaving, setIsSaving] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [exportStatus, setExportStatus] = useState('');
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const isFirstGraphChange = useRef(true);
   const settingsRef = useRef<HTMLDivElement>(null);
+  const exportStatusTimerRef = useRef<number | null>(null);
 
   useClickOutside(settingsRef as React.RefObject<HTMLElement>, () => {
     if (isSettingsOpen) setIsSettingsOpen(false);
   });
+
+  useEffect(() => {
+    return () => {
+      if (exportStatusTimerRef.current) window.clearTimeout(exportStatusTimerRef.current);
+    };
+  }, []);
 
   const saveStatus = !autoSaveEnabled
     ? { label: '自动保存暂停', icon: Clock3, className: 'text-openfmv-muted', spin: false }
@@ -134,28 +142,41 @@ export default function TopBar() {
     setIsPlaying(true);
   };
 
+  const showExportStatus = (message: string) => {
+    if (exportStatusTimerRef.current) window.clearTimeout(exportStatusTimerRef.current);
+    setExportStatus(message);
+    exportStatusTimerRef.current = window.setTimeout(() => {
+      setExportStatus('');
+      exportStatusTimerRef.current = null;
+    }, 3600);
+  };
+
   const handleExport = async () => {
+    if (!window.openfmv?.exportGame || !window.openfmv?.selectDirectory) {
+      showExportStatus('导出 EXE 需要在 OpenFMV 桌面端中使用');
+      alert('导出 EXE 需要在 OpenFMV 桌面端中使用。Web 调试页不能打包可执行文件。');
+      return;
+    }
+
     const latestProject = project?.id ? getLocalProject(project.id) : null;
     const nextProject = createProjectSnapshot(project, title, nodes, edges, latestProject?.assets);
+    showExportStatus('正在导出...');
     setIsExporting(true);
     try {
       const savedProject = await saveLocalProject(nextProject);
       setProject(savedProject);
-      if (window.openfmv?.exportGame && window.openfmv?.selectDirectory) {
-        const outputDirectory = await window.openfmv.selectDirectory();
-        if (!outputDirectory) return;
-        await window.openfmv.exportGame(savedProject, {
-          gameTitle: savedProject.title,
-          outputDirectory,
-          entryNodeId: savedProject.metadata.entryNodeId,
-          windowMode: 'windowed',
-          resolution: { width: 1280, height: 720 },
-          includeDebugOverlay: false,
-        });
-        alert('游戏导出完成');
-        return;
-      }
-      exportProjectJson(savedProject);
+      const outputDirectory = await window.openfmv.selectDirectory();
+      if (!outputDirectory) return;
+      await window.openfmv.exportGame(savedProject, {
+        gameTitle: savedProject.title,
+        outputDirectory,
+        entryNodeId: savedProject.metadata.entryNodeId,
+        windowMode: 'windowed',
+        resolution: { width: 1280, height: 720 },
+        includeDebugOverlay: false,
+      });
+      showExportStatus('游戏导出完成');
+      alert('游戏导出完成');
     } catch (error) {
       console.error('Failed to export game', error);
       alert('导出游戏失败');
@@ -165,7 +186,7 @@ export default function TopBar() {
   };
 
   return (
-    <Header position="absolute" className="pointer-events-none h-14 border-transparent bg-transparent px-4 shadow-none">
+    <Header position="absolute" className="h-14 border-transparent bg-transparent px-4 shadow-none">
       <div className="pointer-events-auto flex min-w-0 items-center gap-3">
         <div className="flex h-9 min-w-0 items-center gap-2 rounded-full border border-white/10 bg-black/32 px-2.5 pr-4 shadow-[0_10px_34px_rgba(0,0,0,0.28)] backdrop-blur-2xl">
           <div className="h-6 w-6 shrink-0 rounded-full bg-[radial-gradient(circle_at_30%_24%,#fff7ad,transparent_31%),radial-gradient(circle_at_66%_25%,#7dd3fc,transparent_34%),radial-gradient(circle_at_42%_70%,#c084fc,transparent_38%),linear-gradient(135deg,#f97316,#14b8a6)] shadow-[0_0_16px_rgba(125,211,252,0.18)]" />
@@ -222,6 +243,11 @@ export default function TopBar() {
           {isExporting ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
           <span className="hidden sm:inline">导出</span>
         </Button>
+        {exportStatus && (
+          <div className="absolute right-4 top-[58px] z-50 max-w-[360px] truncate rounded-[12px] border border-emerald-300/20 bg-black/72 px-3 py-2 text-xs font-medium text-emerald-100 shadow-[0_18px_50px_rgba(0,0,0,0.35)] backdrop-blur-2xl" title={exportStatus}>
+            {exportStatus}
+          </div>
+        )}
       </div>
     </Header>
   );

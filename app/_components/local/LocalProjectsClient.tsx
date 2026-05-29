@@ -270,6 +270,20 @@ export default function LocalProjectsClient() {
     }
   };
 
+  const handleDeleteAsset = async (project: OpenFMVProject, asset: OpenFMVAsset) => {
+    if (!window.confirm(`确定从《${project.title}》移除素材「${asset.name}」吗？`)) return;
+    try {
+      await saveLocalProject({
+        ...project,
+        assets: project.assets.filter((item) => item.id !== asset.id),
+      });
+      refreshProjects();
+    } catch (error) {
+      console.error('删除素材失败:', error);
+      alert('删除素材失败');
+    }
+  };
+
   return (
     <main className="relative flex h-full overflow-hidden bg-[#181818] text-openfmv-text">
       <input ref={projectFileInputRef} type="file" accept=".json,.openfmv,.openfmv.json,application/json" className="hidden" onChange={(event) => { void handleImportProjectFile(event.target.files); }} />
@@ -363,7 +377,7 @@ export default function LocalProjectsClient() {
                         const Icon = getAssetIcon(asset.type);
                         const src = resolveMediaSrc(asset.path);
                         return (
-                          <article key={`${project.id}-${asset.id}`} className="group min-w-0">
+                          <article key={`${project.id}-${asset.id}`} className="group relative min-w-0">
                             <Link href={getAssetStudioHref(project.id, asset.id)} className="relative grid aspect-[4/3] place-items-center overflow-hidden rounded-[12px] border border-white/10 bg-white/[0.055] transition group-hover:border-white/25">
                               {asset.type === 'image' ? (
                                 <img src={src} alt={asset.name} className="h-full w-full object-cover transition group-hover:scale-105" />
@@ -380,6 +394,14 @@ export default function LocalProjectsClient() {
                                 <Icon size={30} className="text-white/75" />
                               )}
                             </Link>
+                            <button
+                              type="button"
+                              onClick={() => void handleDeleteAsset(project, asset)}
+                              className="absolute right-2 top-2 z-20 flex h-8 w-8 items-center justify-center rounded-[10px] border border-white/10 bg-black/55 text-white/75 shadow-[0_12px_28px_rgba(0,0,0,0.28)] backdrop-blur-xl transition hover:border-red-400/45 hover:bg-red-500/15 hover:text-red-300"
+                              title="删除素材"
+                            >
+                              <Trash2 size={14} />
+                            </button>
                             <div className="mt-3 min-w-0">
                               <Link href={getAssetStudioHref(project.id, asset.id)} className="block truncate text-sm font-semibold text-white transition hover:text-white/80">{asset.name}</Link>
                               <div className="mt-1 flex items-center gap-2 text-xs text-openfmv-muted">

@@ -49,6 +49,32 @@ const getAssetDir = async () => {
   return ensureDir(path.join(app.getPath('userData'), 'assets'));
 };
 
+const decodeWithLabel = (bytes, label) => {
+  try {
+    return new TextDecoder(label).decode(bytes);
+  } catch {
+    return null;
+  }
+};
+
+const replacementCount = (value) => (value.match(/\uFFFD/g) || []).length;
+
+const looksLikeMojibake = (value) => /[ÃÂâ€]|锟斤拷|鏂|缁|鍓|绱|潗|涓|浘/.test(value);
+
+const decodeTextBuffer = (buffer) => {
+  const utf8 = decodeWithLabel(buffer, 'utf-8') || '';
+  if (replacementCount(utf8) === 0 && !looksLikeMojibake(utf8)) return utf8;
+
+  return ['gb18030', 'gbk']
+    .map((label) => decodeWithLabel(buffer, label))
+    .filter(Boolean)
+    .reduce((best, candidate) => {
+      const bestScore = replacementCount(best) + (looksLikeMojibake(best) ? 2 : 0);
+      const candidateScore = replacementCount(candidate) + (looksLikeMojibake(candidate) ? 2 : 0);
+      return candidateScore < bestScore ? candidate : best;
+    }, utf8);
+};
+
 const importAssetAtPath = async (filePath) => {
   const assetDir = await getAssetDir();
   const ext = path.extname(filePath);
@@ -69,7 +95,7 @@ const importAssetAtPath = async (filePath) => {
   };
 
   if (type === 'text') {
-    metadata.content = await fs.readFile(targetPath, 'utf8').catch(() => '');
+    metadata.content = await fs.readFile(targetPath).then(decodeTextBuffer).catch(() => '');
     metadata.title = path.parse(name).name;
   }
 
