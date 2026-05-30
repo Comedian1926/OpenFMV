@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import OpenFMVAiSettingsCenter from '@/app/_components/local/OpenFMVAiSettingsCenter';
 import { OpenFMVAgentInfo, OpenFMVAiConfig } from '@/app/_types';
 import { getDefaultOpenFMVAiConfig, normalizeOpenFMVAiConfig } from '@/app/_utils/aiSettings';
+import { OpenFMVBridge } from '@/shared/ipc-contract';
 
 let container: HTMLDivElement;
 let root: Root;
@@ -27,7 +28,23 @@ const renderSettings = async () => {
 describe('OpenFMVAiSettingsCenter', () => {
   beforeEach(() => {
     savedConfig = getDefaultOpenFMVAiConfig();
-    window.openfmv = {
+    const bridge: OpenFMVBridge = {
+      openProject: vi.fn(async () => null),
+      saveProject: vi.fn(async (project) => project),
+      importAsset: vi.fn(async (filePath) => ({
+        id: 'asset-1',
+        type: 'image' as const,
+        name: 'asset.png',
+        path: filePath,
+        relativePath: filePath,
+        importedAt: '2026-01-01T00:00:00.000Z',
+      })),
+      selectAsset: vi.fn(async () => null),
+      exportGame: vi.fn(async () => ({ outputDirectory: 'D:\\OpenFMV' })),
+      selectDirectory: vi.fn(async () => null),
+      minimizeWindow: vi.fn(async () => undefined),
+      toggleMaximizeWindow: vi.fn(async () => undefined),
+      closeWindow: vi.fn(async () => undefined),
       getAiConfig: vi.fn(async () => savedConfig),
       saveAiConfig: vi.fn(async (config: OpenFMVAiConfig) => {
         savedConfig = normalizeOpenFMVAiConfig(config);
@@ -38,9 +55,11 @@ describe('OpenFMVAiSettingsCenter', () => {
         { id: 'claude', name: 'Claude Code', bin: 'claude', version: '1.2.3', available: true, models: ['claude-sonnet-4.5'] },
       ]),
       testAiAgent: vi.fn(async () => ({ ok: true, message: 'CLI available' })),
+      sendChatMessage: vi.fn(async () => ({ ok: true, content: '', agentId: 'codex' as const, model: 'codex-default' })),
       testByokProvider: vi.fn(async () => ({ ok: true, message: 'HTTP 200' })),
       testMediaProvider: vi.fn(async () => ({ ok: true, message: 'HTTP 200' })),
     };
+    window.openfmv = bridge;
   });
 
   afterEach(() => {

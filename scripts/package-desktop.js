@@ -6,6 +6,7 @@ const electronDistDir = path.join(root, 'node_modules', 'electron', 'dist');
 const standaloneDir = path.join(root, '.next', 'standalone');
 const appName = 'OpenFMV';
 let outputDir = path.join(root, 'dist', `${appName}-win32-x64`);
+const electronRuntimeDependencies = ['zod'];
 
 const copyDir = (source, target) => {
   fs.mkdirSync(target, { recursive: true });
@@ -46,6 +47,13 @@ copyDir(path.join(root, 'electron'), path.join(resourcesAppDir, 'electron'));
 copyDir(path.join(root, 'public'), path.join(resourcesAppDir, 'public'));
 copyDir(path.join(root, 'shared'), path.join(resourcesAppDir, 'shared'));
 copyDir(standaloneDir, path.join(resourcesAppDir, '.next', 'standalone'));
+
+for (const dependency of electronRuntimeDependencies) {
+  copyDir(
+    path.join(root, 'node_modules', dependency),
+    path.join(resourcesAppDir, 'node_modules', dependency)
+  );
+}
 
 fs.writeFileSync(
   path.join(resourcesAppDir, 'package.json'),

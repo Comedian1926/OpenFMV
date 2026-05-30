@@ -39,6 +39,7 @@ raven-dev.log.err
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+/shared/ipc-contract.js
 
 # editors
 .vscode

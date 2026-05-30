@@ -1,4 +1,4 @@
-import { AppEdge, AppNode, GameExportConfig, OpenFMVAgentId, OpenFMVAgentInfo, OpenFMVAiConfig, OpenFMVByokProviderConfig, OpenFMVChatRequest, OpenFMVChatResponse, OpenFMVConnectionTestResult, OpenFMVMediaProviderConfig, OpenFMVProject, OpenFMVAsset } from '../_types';
+import { AppEdge, AppNode, OpenFMVProject, OpenFMVAsset } from '../_types';
 import {
   collectProjectAssetsFromGraph as collectGraphAssets,
   defaultGraphData as createDefaultGraphData,
@@ -10,31 +10,6 @@ import { decodeTextBuffer } from './textEncoding';
 
 const PROJECTS_KEY = 'openfmv-local-projects';
 const LEGACY_PROJECTS_KEY = ['ra', 'ven-local-projects'].join('');
-
-type OpenFMVBridge = {
-  openProject?: () => Promise<OpenFMVProject | null>;
-  saveProject?: (project: OpenFMVProject) => Promise<OpenFMVProject>;
-  importAsset?: (filePath: string) => Promise<OpenFMVAsset>;
-  selectAsset?: () => Promise<OpenFMVAsset | null>;
-  exportGame?: (project: OpenFMVProject, config: GameExportConfig) => Promise<{ outputDirectory: string }>;
-  selectDirectory?: () => Promise<string | null>;
-  minimizeWindow?: () => Promise<void>;
-  toggleMaximizeWindow?: () => Promise<void>;
-  closeWindow?: () => Promise<void>;
-  getAiConfig?: () => Promise<OpenFMVAiConfig>;
-  saveAiConfig?: (config: OpenFMVAiConfig) => Promise<OpenFMVAiConfig>;
-  detectAiAgents?: () => Promise<OpenFMVAgentInfo[]>;
-  testAiAgent?: (agentId: OpenFMVAgentId) => Promise<OpenFMVConnectionTestResult>;
-  sendChatMessage?: (request: OpenFMVChatRequest) => Promise<OpenFMVChatResponse>;
-  testByokProvider?: (provider: OpenFMVByokProviderConfig) => Promise<OpenFMVConnectionTestResult>;
-  testMediaProvider?: (provider: OpenFMVMediaProviderConfig) => Promise<OpenFMVConnectionTestResult>;
-};
-
-declare global {
-  interface Window {
-    openfmv?: OpenFMVBridge;
-  }
-}
 
 export const defaultGraphData = (): { nodes: AppNode[]; edges: AppEdge[] } => createDefaultGraphData();
 

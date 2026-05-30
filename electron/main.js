@@ -9,6 +9,7 @@ const crypto = require('crypto');
 const { pathToFileURL } = require('url');
 const { exportGamePackage, sanitizeName, saveProjectToDirectory } = require('./exporter');
 const { registerAiSettingsIpc } = require('./ai-settings');
+const { registerIpcHandler } = require('../shared/ipc-contract.js');
 
 const isDev = !app.isPackaged;
 const appIconPath = path.join(__dirname, '..', 'public', 'logo.png');
@@ -254,6 +255,7 @@ const createWindow = async () => {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
+      sandbox: false,
     },
   });
   win.setMenu(null);
@@ -281,14 +283,14 @@ const createWindow = async () => {
   await win.loadURL(defaultStartUrl);
 };
 
-ipcMain.handle('openfmv:select-directory', async () => {
+registerIpcHandler(ipcMain, 'selectDirectory', async () => {
   const result = await dialog.showOpenDialog({
     properties: ['openDirectory', 'createDirectory'],
   });
   return result.canceled ? null : result.filePaths[0];
 });
 
-ipcMain.handle('openfmv:open-project', async () => {
+registerIpcHandler(ipcMain, 'openProject', async () => {
   const result = await dialog.showOpenDialog({
     filters: [{ name: 'OpenFMV Project', extensions: ['json', 'openfmv', ['ra', 'ven'].join('')] }],
     properties: ['openFile'],
@@ -307,17 +309,17 @@ ipcMain.handle('openfmv:open-project', async () => {
   };
 });
 
-ipcMain.handle('openfmv:save-project', async (_event, project) => {
+registerIpcHandler(ipcMain, 'saveProject', async (_event, project) => {
   const workspace = await getWorkspaceDir();
   const projectDir = await ensureDir(project.metadata?.projectDirectory || path.join(workspace, sanitizeName(project.title)));
   return saveProjectToDirectory(project, projectDir);
 });
 
-ipcMain.handle('openfmv:import-asset', async (_event, filePath) => {
+registerIpcHandler(ipcMain, 'importAsset', async (_event, filePath) => {
   return importAssetAtPath(filePath);
 });
 
-ipcMain.handle('openfmv:select-asset', async () => {
+registerIpcHandler(ipcMain, 'selectAsset', async () => {
   const result = await dialog.showOpenDialog({
     filters: [
       { name: 'OpenFMV Assets', extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'mp4', 'webm', 'mov', 'mkv', 'mp3', 'wav', 'ogg', 'm4a', 'aac', 'flac', 'txt', 'md'] },
@@ -328,7 +330,7 @@ ipcMain.handle('openfmv:select-asset', async () => {
   return importAssetAtPath(result.filePaths[0]);
 });
 
-ipcMain.handle('openfmv:export-game', async (_event, project, config) => {
+registerIpcHandler(ipcMain, 'exportGame', async (_event, project, config) => {
   const electronRuntimeDir = isDev ? path.dirname(process.execPath) : path.dirname(process.resourcesPath);
   return exportGamePackage({
     project,
@@ -339,11 +341,11 @@ ipcMain.handle('openfmv:export-game', async (_event, project, config) => {
   });
 });
 
-ipcMain.handle('openfmv:minimize-window', (event) => {
+registerIpcHandler(ipcMain, 'minimizeWindow', (event) => {
   BrowserWindow.fromWebContents(event.sender)?.minimize();
 });
 
-ipcMain.handle('openfmv:toggle-maximize-window', (event) => {
+registerIpcHandler(ipcMain, 'toggleMaximizeWindow', (event) => {
   const win = BrowserWindow.fromWebContents(event.sender);
   if (!win) return;
   if (win.isMaximized()) {
@@ -353,7 +355,7 @@ ipcMain.handle('openfmv:toggle-maximize-window', (event) => {
   win.maximize();
 });
 
-ipcMain.handle('openfmv:close-window', (event) => {
+registerIpcHandler(ipcMain, 'closeWindow', (event) => {
   BrowserWindow.fromWebContents(event.sender)?.close();
 });
 

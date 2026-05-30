@@ -10,6 +10,7 @@ const {
   getDefaultAiConfig,
   normalizeAiConfig,
 } = require('../shared/ai-definitions');
+const { registerIpcHandler } = require('../shared/ipc-contract.js');
 
 const mediaIds = new Set(mediaProviderDefinitions.map((item) => item.id));
 
@@ -304,13 +305,13 @@ const testMediaProvider = async (provider) => {
 };
 
 const registerAiSettingsIpc = ({ ipcMain, app }) => {
-  ipcMain.handle('openfmv:get-ai-config', async () => readAiConfig(app));
-  ipcMain.handle('openfmv:save-ai-config', async (_event, config) => saveAiConfig(app, config));
-  ipcMain.handle('openfmv:detect-ai-agents', async () => detectAiAgents());
-  ipcMain.handle('openfmv:test-ai-agent', async (_event, agentId) => testAiAgent(agentId));
-  ipcMain.handle('openfmv:send-chat-message', async (_event, request) => sendChatMessage(app, request));
-  ipcMain.handle('openfmv:test-byok-provider', async (_event, provider) => testByokProvider(provider));
-  ipcMain.handle('openfmv:test-media-provider', async (_event, provider) => testMediaProvider(provider));
+  registerIpcHandler(ipcMain, 'getAiConfig', async () => readAiConfig(app));
+  registerIpcHandler(ipcMain, 'saveAiConfig', async (_event, config) => saveAiConfig(app, config));
+  registerIpcHandler(ipcMain, 'detectAiAgents', async () => detectAiAgents());
+  registerIpcHandler(ipcMain, 'testAiAgent', async (_event, agentId) => testAiAgent(agentId));
+  registerIpcHandler(ipcMain, 'sendChatMessage', async (_event, request) => sendChatMessage(app, request));
+  registerIpcHandler(ipcMain, 'testByokProvider', async (_event, provider) => testByokProvider(provider));
+  registerIpcHandler(ipcMain, 'testMediaProvider', async (_event, provider) => testMediaProvider(provider));
 };
 
 module.exports = {
