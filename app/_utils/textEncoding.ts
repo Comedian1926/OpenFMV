@@ -8,7 +8,21 @@ const decodeWithLabel = (bytes: Uint8Array, label: string) => {
 
 const replacementCount = (value: string) => (value.match(/\uFFFD/g) || []).length;
 
-const looksLikeMojibake = (value: string) => /[ÃÂâ€]|锟斤拷|鏂|缁|鍓|绱|潗|涓|浘/.test(value);
+const mojibakePattern = new RegExp([
+  '\\u00c3',
+  '\\u00c2',
+  '\\u00e2\\u20ac',
+  '\\u951f\\u65a4\\u62f7',
+  '\\u93c2',
+  '\\u7f01',
+  '\\u934a',
+  '\\u7d31',
+  '\\u6f57',
+  '\\u6d93',
+  '\\u6d58',
+].join('|'));
+
+const looksLikeMojibake = (value: string) => mojibakePattern.test(value);
 
 export const decodeTextBuffer = (buffer: ArrayBuffer | Uint8Array) => {
   const bytes = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);

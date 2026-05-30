@@ -59,25 +59,26 @@ export function RenameAssetModal({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Edit3 className="h-5 w-5 text-openfmv-accent" />
-            閲嶅懡鍚嶈祫浜?          </DialogTitle>
-          <DialogDescription>杈撳叆鏂扮殑璧勪骇鍚嶇О銆</DialogDescription>
+            重命名资产
+          </DialogTitle>
+          <DialogDescription>输入新的资产名称。</DialogDescription>
         </DialogHeader>
         <div className="space-y-2">
           <Label htmlFor="asset-name" className="text-openfmv-sub">
-            璧勪骇鍚嶇О
+            资产名称
           </Label>
           <Input
             id="asset-name"
             value={name}
             onChange={(event) => setName(event.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="杈撳叆鏂扮殑鍚嶇О"
+            placeholder="输入新的名称"
             autoFocus
           />
         </div>
         <DialogFooter>
           <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
-            ??
+            取消
           </Button>
           <Button onClick={handleConfirm} disabled={isSubmitting || !name.trim()}>
             {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}

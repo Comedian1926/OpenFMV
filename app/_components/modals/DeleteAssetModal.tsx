@@ -45,18 +45,19 @@ export function DeleteAssetModal({
         <AlertDialogHeader>
           <AlertDialogTitle className="flex items-center gap-2">
             <AlertTriangle className="h-5 w-5 text-red-400" />
-            鍒犻櫎璧勪骇
+            删除资产
           </AlertDialogTitle>
           <AlertDialogDescription className="text-openfmv-sub">
-            纭畾瑕佸垹闄よ繖涓祫浜у悧锛熸鎿嶄綔鏃犳硶鎾ら攢锛岃璧勪骇浼氳姘镐箙鍒犻櫎銆?          </AlertDialogDescription>
+            确定要删除这个资产吗？此操作无法撤销，该资产会被永久删除。
+          </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel onClick={onClose} disabled={isDeleting}>
-            ??
+            取消
           </AlertDialogCancel>
           <Button variant="destructive" onClick={handleConfirm} disabled={isDeleting}>
             {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            {isDeleting ? 'Deleting' : 'Confirm delete'}
+            {isDeleting ? '删除中' : '确认删除'}
           </Button>
         </AlertDialogFooter>
       </AlertDialogContent>

@@ -81,7 +81,7 @@ const EndNode = ({ id, data }: NodeProps<AppNode>) => {
           <div className="group/media relative aspect-video overflow-hidden rounded-md border border-white/10 bg-black">
             {image ? (
               <>
-                <img src={imageSrc} alt="缁撴潫鐢婚潰" className="h-full w-full object-contain" />
+                <img src={imageSrc} alt="结束画面" className="h-full w-full object-contain" />
                 <button onClick={(event) => { event.stopPropagation(); removeMedia(); }} className="absolute right-2 top-2 z-10 rounded-md bg-black/55 p-1.5 text-white opacity-0 transition hover:bg-red-500/85 group-hover/media:opacity-100"><X size={14} /></button>
               </>
             ) : video ? (
@@ -98,7 +98,7 @@ const EndNode = ({ id, data }: NodeProps<AppNode>) => {
                     <VideoIcon size={15} />
                     <ImageIcon size={15} />
                     <Type size={15} />
-                    <span>瀵煎叆缁撳熬绱犳潗</span>
+                    <span>导入结尾素材</span>
                     <input ref={fileInputRef} type="file" className="hidden" accept="video/*,image/*,.txt,.md" onClick={(event) => event.stopPropagation()} onChange={handleFileUpload} />
                   </div>
                 )}

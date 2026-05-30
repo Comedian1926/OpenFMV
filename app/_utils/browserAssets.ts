@@ -2,8 +2,6 @@ const DB_NAME = 'openfmv-browser-assets';
 const STORE_NAME = 'assets';
 const IDB_PREFIX = 'openfmv-idb://';
 const OPFS_PREFIX = 'openfmv-opfs://';
-const LEGACY_IDB_PREFIX = ['ra', 'ven-idb://'].join('');
-const LEGACY_OPFS_PREFIX = ['ra', 'ven-opfs://'].join('');
 const OPFS_DIRECTORY = 'assets';
 
 interface StoredBrowserAsset {
@@ -17,10 +15,10 @@ interface StoredBrowserAsset {
 const objectUrlCache = new Map<string, string>();
 
 export const isBrowserAssetRef = (value?: string | null) => {
-  return typeof value === 'string' && (value.startsWith(IDB_PREFIX) || value.startsWith(OPFS_PREFIX) || value.startsWith(LEGACY_IDB_PREFIX) || value.startsWith(LEGACY_OPFS_PREFIX));
+  return typeof value === 'string' && (value.startsWith(IDB_PREFIX) || value.startsWith(OPFS_PREFIX));
 };
 
-const getBrowserAssetId = (value: string) => value.replace(IDB_PREFIX, '').replace(OPFS_PREFIX, '').replace(LEGACY_IDB_PREFIX, '').replace(LEGACY_OPFS_PREFIX, '');
+const getBrowserAssetId = (value: string) => value.replace(IDB_PREFIX, '').replace(OPFS_PREFIX, '');
 
 const openBrowserAssetDb = () => {
   return new Promise<IDBDatabase>((resolve, reject) => {
@@ -101,7 +99,7 @@ export const resolveBrowserAssetRef = async (ref: string) => {
   const cached = objectUrlCache.get(ref);
   if (cached) return cached;
   if (!isBrowserAssetRef(ref)) return undefined;
-  if (ref.startsWith(OPFS_PREFIX) || ref.startsWith(LEGACY_OPFS_PREFIX)) {
+  if (ref.startsWith(OPFS_PREFIX)) {
     const objectUrl = await resolveOpfsAssetRef(ref).catch(() => undefined);
     if (objectUrl) objectUrlCache.set(ref, objectUrl);
     return objectUrl;

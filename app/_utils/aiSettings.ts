@@ -15,7 +15,6 @@ import {
 import aiDefinitions from '../../shared/ai-definitions';
 
 const STORAGE_KEY = 'openfmv-ai-settings';
-const LEGACY_STORAGE_KEY = ['ra', 'ven-ai-settings'].join('');
 const CHANGE_EVENT = 'openfmv-ai-settings-changed';
 
 export interface OpenFMVAgentDefinition {
@@ -50,7 +49,7 @@ export const normalizeOpenFMVAiConfig = (value: unknown): OpenFMVAiConfig => aiD
 export const getOpenFMVAiConfig = async (): Promise<OpenFMVAiConfig> => {
   if (typeof window === 'undefined') return getDefaultOpenFMVAiConfig();
   if (window.openfmv?.getAiConfig) return normalizeOpenFMVAiConfig(await window.openfmv.getAiConfig());
-  const raw = window.localStorage.getItem(STORAGE_KEY) ?? window.localStorage.getItem(LEGACY_STORAGE_KEY);
+  const raw = window.localStorage.getItem(STORAGE_KEY);
   if (!raw) return getDefaultOpenFMVAiConfig();
   try {
     const config = normalizeOpenFMVAiConfig(JSON.parse(raw));

@@ -23,7 +23,7 @@ app.on('browser-window-created', (_event, window) => {
 });
 
 const resolveConfiguredPort = () => {
-  const configuredPort = Number(process.env.OPENFMV_PORT || process.env[['RA', 'VEN_PORT'].join('')] || process.env.PORT || '3000');
+  const configuredPort = Number(process.env.OPENFMV_PORT || process.env.PORT || '3000');
   return Number.isFinite(configuredPort) && configuredPort > 0 ? configuredPort : 3000;
 };
 let serverPort = resolveConfiguredPort();
@@ -60,7 +60,21 @@ const decodeWithLabel = (bytes, label) => {
 
 const replacementCount = (value) => (value.match(/\uFFFD/g) || []).length;
 
-const looksLikeMojibake = (value) => /[ÃÂâ€]|锟斤拷|鏂|缁|鍓|绱|潗|涓|浘/.test(value);
+const mojibakePattern = new RegExp([
+  '\\u00c3',
+  '\\u00c2',
+  '\\u00e2\\u20ac',
+  '\\u951f\\u65a4\\u62f7',
+  '\\u93c2',
+  '\\u7f01',
+  '\\u934a',
+  '\\u7d31',
+  '\\u6f57',
+  '\\u6d93',
+  '\\u6d58',
+].join('|'));
+
+const looksLikeMojibake = (value) => mojibakePattern.test(value);
 
 const decodeTextBuffer = (buffer) => {
   const utf8 = decodeWithLabel(buffer, 'utf-8') || '';
@@ -292,7 +306,7 @@ registerIpcHandler(ipcMain, 'selectDirectory', async () => {
 
 registerIpcHandler(ipcMain, 'openProject', async () => {
   const result = await dialog.showOpenDialog({
-    filters: [{ name: 'OpenFMV Project', extensions: ['json', 'openfmv', ['ra', 'ven'].join('')] }],
+    filters: [{ name: 'OpenFMV Project', extensions: ['json', 'openfmv'] }],
     properties: ['openFile'],
   });
   if (result.canceled || !result.filePaths[0]) return null;

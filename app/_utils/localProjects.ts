@@ -9,7 +9,6 @@ import { saveBrowserAssetFile } from './browserAssets';
 import { decodeTextBuffer } from './textEncoding';
 
 const PROJECTS_KEY = 'openfmv-local-projects';
-const LEGACY_PROJECTS_KEY = ['ra', 'ven-local-projects'].join('');
 
 export const defaultGraphData = (): { nodes: AppNode[]; edges: AppEdge[] } => createDefaultGraphData();
 
@@ -21,7 +20,7 @@ const now = () => new Date().toISOString();
 
 const readRawProjects = () => {
   if (typeof window === 'undefined') return [];
-  const raw = window.localStorage.getItem(PROJECTS_KEY) ?? window.localStorage.getItem(LEGACY_PROJECTS_KEY);
+  const raw = window.localStorage.getItem(PROJECTS_KEY);
   if (!raw) return [];
   try {
     const parsed = JSON.parse(raw);

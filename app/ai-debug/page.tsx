@@ -61,7 +61,7 @@ export default function AiDebugPage() {
           </div>
           <button type="button" onClick={() => void load()} disabled={isLoading} className="inline-flex h-10 items-center gap-2 rounded-[10px] border border-white/10 bg-white/[0.07] px-4 text-sm font-semibold text-white transition hover:bg-white/[0.11] disabled:opacity-50">
             {isLoading ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
-            閲嶆柊鎵弿
+            重新扫描
           </button>
         </div>
 

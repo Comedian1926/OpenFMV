@@ -11,7 +11,7 @@ interface SwipeUnlockProps {
 
 export const SwipeUnlock: React.FC<SwipeUnlockProps> = ({
   onUnlock,
-  label = '婊戝姩瑙ｉ攣',
+  label = '滑动解锁',
   isSubmitting = false,
 }) => {
   const [isDragging, setIsDragging] = useState(false);
