@@ -306,57 +306,40 @@ const createGameShellHtml = (gameJson, graphRuntimeScript = '') => `
   <script>${graphRuntimeScript}</script>
   <script>
     const appRoot = document.getElementById('app');
-    const graphRuntime = window.OpenFMVGraphRuntime;
-    let graph = null;
-    let current = null;
-    let variables = {};
+    const runtimeCore = window.OpenFMVRuntimeCore;
+    let runtime = null;
+    let snapshot = null;
     let countdownTimer = null;
 
     const escapeHtml = (value) => String(value || '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
-    const findNode = (id) => graphRuntime.getNodeById(graph.nodes, id);
-    const entryNodeId = () => graphRuntime.getEntryNodeId(graph, graph.metadata && graph.metadata.entryNodeId);
+    const effect = (type) => (snapshot && snapshot.effects || []).find((item) => item.type === type);
 
-    const go = (id) => {
-      const next = findNode(id);
-      if (!next) {
-        finish();
-        return;
-      }
-      current = next;
+    const send = (event) => {
+      snapshot = runtime.dispatch(event);
       render();
     };
 
-    const finish = () => {
-      current = null;
-      render();
-    };
+    const promptHtml = (prompt) => prompt ? '<h2 class="prompt">' + escapeHtml(prompt) + '</h2>' : '';
 
-    const nextFrom = (node, choice) => {
-      const targetNodeId = graphRuntime.resolveNextNodeId(node, graph.edges, choice);
-      if (targetNodeId) {
-        go(targetNodeId);
-      } else {
-        finish();
+    const renderActions = () => {
+      if (!snapshot || snapshot.status === 'ended' || (snapshot.currentNode && snapshot.currentNode.type === 'end')) {
+        return '<div class="actions actions-single actions-start"><button class="action-button" data-restart="1"><span class="action-label">重新开始</span><span class="action-arrow">↻</span></button></div>';
       }
-    };
-
-    const promptHtml = (node) => node.data && node.data.prompt ? '<h2 class="prompt">' + escapeHtml(node.data.prompt) + '</h2>' : '';
-
-    const renderActions = (node) => {
-      if (node.type === 'end') return '<div class="actions actions-single actions-start"><button class="action-button" data-end="1"><span class="action-label">重新开始</span><span class="action-arrow">↻</span></button></div>';
-      if (graphRuntime.shouldShowRuntimeControls(node, graph.edges)) {
-        const mode = graphRuntime.getRuntimeInteractionMode(node);
-        if (mode === 'input') {
-          return '<div class="controls">' + promptHtml(node) + '<div class="input-row"><input id="answer" placeholder="' + escapeHtml(node.data.buttonText || '输入你的回答...') + '" /><button class="icon-button" data-input="1">→</button></div></div>';
-        }
-        if (mode === 'slider') {
-          return '<div class="controls">' + promptHtml(node) + '<div class="actions actions-single actions-center"><button class="action-button" data-slider="1" data-handle="slider"><span class="action-label">' + escapeHtml((node.data.sliderConfig && node.data.sliderConfig.label) || '滑动解锁') + '</span><span class="action-arrow">→</span></button></div></div>';
-        }
-        const rules = graphRuntime.getRuntimeChoiceRules(node);
-        const actionClass = rules.length > 1 ? 'actions actions-grid' : 'actions actions-single actions-center';
-        return '<div class="controls">' + promptHtml(node) + '<div class="' + actionClass + '">' + rules.map((rule) => '<button class="action-button" data-choice-input="' + escapeHtml(rule.condition || rule.keyword || '') + '" data-handle="' + escapeHtml(rule.handleId || '') + '"><span class="action-label">' + escapeHtml(rule.condition || rule.keyword || '选项') + '</span><span class="action-arrow">→</span></button>').join('') + '</div></div>';
+      const input = effect('showInput');
+      if (input) {
+        return '<div class="controls">' + promptHtml(input.prompt) + '<div class="input-row"><input id="answer" placeholder="' + escapeHtml(input.placeholder) + '" /><button class="icon-button" data-input="1">→</button></div></div>';
       }
-      return '<div class="actions actions-single actions-start"><button class="action-button" data-next="1"><span class="action-label">继续</span><span class="action-arrow">→</span></button></div>';
+      const slider = effect('showSlider');
+      if (slider) {
+        return '<div class="controls">' + promptHtml(slider.prompt) + '<div class="actions actions-single actions-center"><button class="action-button" data-slider="1" data-handle="' + escapeHtml(slider.handleId) + '"><span class="action-label">' + escapeHtml(slider.label) + '</span><span class="action-arrow">→</span></button></div></div>';
+      }
+      const choices = effect('showChoices');
+      if (choices) {
+        const actionClass = choices.choices.length > 1 ? 'actions actions-grid' : 'actions actions-single actions-center';
+        return '<div class="controls">' + promptHtml(choices.prompt) + '<div class="' + actionClass + '">' + choices.choices.map((choice) => '<button class="action-button" data-choice-input="' + escapeHtml(choice.input) + '" data-handle="' + escapeHtml(choice.handleId) + '"><span class="action-label">' + escapeHtml(choice.label) + '</span><span class="action-arrow">→</span></button>').join('') + '</div></div>';
+      }
+      const next = effect('showContinue');
+      return next ? '<div class="actions actions-single actions-start"><button class="action-button" data-next="1"><span class="action-label">' + escapeHtml(next.label) + '</span><span class="action-arrow">→</span></button></div>' : '';
     };
 
     const render = () => {
@@ -364,23 +347,24 @@ const createGameShellHtml = (gameJson, graphRuntimeScript = '') => `
         clearTimeout(countdownTimer);
         countdownTimer = null;
       }
-      if (!current) {
-        appRoot.innerHTML = '<div class="scene"><div class="shade"></div><div class="bottom-glow"></div><main class="content"><div class="content-inner"><div class="story-copy"><h1>播放结束</h1></div><div class="actions actions-single actions-start"><button class="action-button" data-end="1"><span class="action-label">重新开始</span><span class="action-arrow">↻</span></button></div></div></main></div>';
-        appRoot.querySelector('[data-end]')?.addEventListener('click', () => go(entryNodeId()));
+      const scene = effect('scene');
+      const mediaEffect = effect('playMedia');
+      const timerEffect = effect('startTimer');
+      if (!snapshot || !scene) {
+        appRoot.innerHTML = '<div class="scene"><div class="shade"></div><div class="bottom-glow"></div><main class="content"><div class="content-inner"><div class="story-copy"><h1>播放结束</h1></div>' + renderActions() + '</div></main></div>';
+        appRoot.querySelector('[data-restart]')?.addEventListener('click', () => send({ type: 'restart' }));
         return;
       }
-      const media = current.data.video
-        ? '<video class="media" src="' + escapeHtml(current.data.video) + '" poster="' + escapeHtml(current.data.videoThumbnail || '') + '" autoplay playsinline controls></video>'
-        : current.data.image
-          ? '<img class="media" src="' + escapeHtml(current.data.image) + '" />'
+      const media = mediaEffect && mediaEffect.mediaType === 'video'
+        ? '<video class="media" src="' + escapeHtml(mediaEffect.src) + '" poster="' + escapeHtml(mediaEffect.poster || '') + '" autoplay playsinline controls></video>'
+        : mediaEffect && mediaEffect.mediaType === 'image'
+          ? '<img class="media" src="' + escapeHtml(mediaEffect.src) + '" />'
           : '';
-      const timeLimit = Number(current.data.timeLimit) || 0;
-      const timer = timeLimit > 0 ? '<div class="timer"><span style="animation-duration:' + timeLimit + 's"></span></div>' : '';
-      const text = graphRuntime.getNodeText(current);
-      const storyCopy = '<div class="story-copy"><div class="node-type">' + escapeHtml(current.type) + '</div><h1>' + escapeHtml(graphRuntime.getNodeTitle(current)) + '</h1>' + (text ? '<p>' + escapeHtml(text) + '</p>' : '') + '</div>';
-      appRoot.innerHTML = '<div class="scene">' + media + '<div class="shade"></div><div class="bottom-glow"></div><main class="content"><div class="content-inner">' + storyCopy + renderActions(current) + timer + '</div></main></div>';
-      if (timeLimit > 0 && current.type !== 'end') {
-        countdownTimer = setTimeout(() => nextFrom(current), timeLimit * 1000);
+      const timer = timerEffect ? '<div class="timer"><span style="animation-duration:' + timerEffect.seconds + 's"></span></div>' : '';
+      const storyCopy = '<div class="story-copy"><div class="node-type">' + escapeHtml(scene.nodeType) + '</div><h1>' + escapeHtml(scene.title) + '</h1>' + (scene.text ? '<p>' + escapeHtml(scene.text) + '</p>' : '') + '</div>';
+      appRoot.innerHTML = '<div class="scene">' + media + '<div class="shade"></div><div class="bottom-glow"></div><main class="content"><div class="content-inner">' + storyCopy + renderActions() + timer + '</div></main></div>';
+      if (timerEffect && snapshot.currentNode && snapshot.currentNode.type !== 'end') {
+        countdownTimer = setTimeout(() => send({ type: 'timer.timeout' }), timerEffect.seconds * 1000);
       }
       appRoot.querySelectorAll('button').forEach((button) => {
         button.addEventListener('click', () => {
@@ -388,33 +372,31 @@ const createGameShellHtml = (gameJson, graphRuntimeScript = '') => `
             clearTimeout(countdownTimer);
             countdownTimer = null;
           }
-          if (button.dataset.end) {
-            go(entryNodeId());
+          if (button.dataset.restart) {
+            send({ type: 'restart' });
             return;
           }
           if (button.dataset.slider) {
-            nextFrom(current, { input: 'unlocked', handleId: button.dataset.handle });
+            send({ type: 'slider.unlocked', input: 'unlocked', handleId: button.dataset.handle });
             return;
           }
           if (button.dataset.input) {
-            variables.lastInput = document.getElementById('answer')?.value || '';
-            nextFrom(current, { input: variables.lastInput });
+            send({ type: 'input.submitted', value: document.getElementById('answer')?.value || '' });
             return;
           }
           if (button.dataset.choiceInput !== undefined) {
-            nextFrom(current, { input: button.dataset.choiceInput, handleId: button.dataset.handle });
+            send({ type: 'choice.selected', input: button.dataset.choiceInput, handleId: button.dataset.handle });
             return;
           }
-          nextFrom(current);
+          send({ type: 'continue' });
         });
       });
     };
 
     try {
       const game = JSON.parse(document.getElementById('game-data').textContent);
-      graph = game.graphData;
-      graph.metadata = game.metadata || {};
-      current = findNode(entryNodeId());
+      runtime = runtimeCore.createRuntime(game.graphData, { entryNodeId: game.metadata && game.metadata.entryNodeId });
+      snapshot = runtime.start();
       render();
     } catch (error) {
       appRoot.innerHTML = '<div class="scene"><div class="shade"></div><main class="content"><div class="content-inner"><div class="story-copy"><h1>Unable to load game data</h1></div></div></main></div>';

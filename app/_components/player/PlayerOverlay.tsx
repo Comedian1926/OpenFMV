@@ -2,13 +2,12 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowRight, RotateCcw, X } from 'lucide-react';
-import { AppEdge, AppNode } from '../../_types';
 import { useResolvedMediaSrc } from '../../_hooks/useResolvedMediaSrc';
 import { usePlayerStore } from '../../_store/usePlayerStore';
 import { useRuntimeGraphStore } from '../../_store/useRuntimeGraphStore';
 import OpenFMVVideo from '../video/OpenFMVVideo';
 import { SwipeUnlock } from './interactions';
-import { getNodeText, getNodeTitle, getRuntimeChoiceRules, getRuntimeInteractionMode, resolveNextNodeId, shouldShowRuntimeControls } from '../../_utils/graphRuntime';
+import { createRuntime, RuntimeEffect, RuntimeEvent, RuntimeSnapshot } from '../../_utils/graphRuntime';
 
 const Countdown = ({ seconds, countdownKey, onTimeout }: { seconds?: number; countdownKey: string; onTimeout: () => void }) => {
   const normalizedSeconds = Math.max(0, Math.floor(Number(seconds) || 0));
@@ -45,52 +44,81 @@ const Countdown = ({ seconds, countdownKey, onTimeout }: { seconds?: number; cou
   );
 };
 
-const InteractionControls = ({ node, edges, onNavigate }: { node: AppNode; edges: AppEdge[]; onNavigate: (targetNodeId: string | null) => void }) => {
-  const data = node.data as Record<string, any>;
-  const rules = getRuntimeChoiceRules(node);
-  const mode = getRuntimeInteractionMode(node);
+const getEffect = <T extends RuntimeEffect['type']>(effects: RuntimeEffect[], type: T) => {
+  return effects.find((effect): effect is Extract<RuntimeEffect, { type: T }> => effect.type === type);
+};
+
+const InteractionControls = ({ effects, dispatch }: { effects: RuntimeEffect[]; dispatch: (event: RuntimeEvent) => void }) => {
+  const choiceEffect = getEffect(effects, 'showChoices');
+  const inputEffect = getEffect(effects, 'showInput');
+  const sliderEffect = getEffect(effects, 'showSlider');
+  const continueEffect = getEffect(effects, 'showContinue');
+  const timerEffect = getEffect(effects, 'startTimer');
   const [inputValue, setInputValue] = useState('');
 
-  const goNext = useCallback((input?: string, handleId?: string) => onNavigate(resolveNextNodeId(node, edges, { input, handleId })), [edges, node, onNavigate]);
+  useEffect(() => {
+    setInputValue('');
+  }, [choiceEffect?.prompt, inputEffect?.prompt, sliderEffect?.prompt]);
+
+  const submitInput = () => {
+    dispatch({ type: 'input.submitted', value: inputValue });
+    setInputValue('');
+  };
+
+  const prompt = choiceEffect?.prompt || inputEffect?.prompt || sliderEffect?.prompt || '';
 
   return (
     <div className="w-full max-w-4xl">
-      {data.prompt && <h2 className="mb-5 text-center text-2xl font-semibold text-white drop-shadow-lg md:text-3xl">{data.prompt}</h2>}
+      {prompt && <h2 className="mb-5 text-center text-2xl font-semibold text-white drop-shadow-lg md:text-3xl">{prompt}</h2>}
 
-      {mode === 'slider' ? (
-        <div className="flex justify-center"><SwipeUnlock label={data.sliderConfig?.label || '滑动解锁'} onUnlock={() => goNext('unlocked', 'slider')} /></div>
-      ) : mode === 'input' ? (
+      {sliderEffect ? (
+        <div className="flex justify-center"><SwipeUnlock label={sliderEffect.label} onUnlock={() => dispatch({ type: 'slider.unlocked', input: 'unlocked', handleId: sliderEffect.handleId })} /></div>
+      ) : inputEffect ? (
         <div className="mx-auto flex max-w-xl items-center gap-2 rounded-full border border-white/15 bg-white/[0.12] p-2 shadow-[0_18px_60px_rgba(0,0,0,0.35)] backdrop-blur-3xl">
-          <input value={inputValue} onChange={(event) => setInputValue(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') { goNext(inputValue); setInputValue(''); } }} placeholder="输入你的回答..." className="min-w-0 flex-1 bg-transparent px-4 py-3 text-white outline-none placeholder-white/35" />
-          <button onClick={() => { goNext(inputValue); setInputValue(''); }} className="flex h-11 w-11 items-center justify-center rounded-full bg-openfmv-accent text-white transition hover:bg-openfmv-accent-hover"><ArrowRight size={18} /></button>
+          <input value={inputValue} onChange={(event) => setInputValue(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') submitInput(); }} placeholder={inputEffect.placeholder} className="min-w-0 flex-1 bg-transparent px-4 py-3 text-white outline-none placeholder-white/35" />
+          <button onClick={submitInput} className="flex h-11 w-11 items-center justify-center rounded-full bg-openfmv-accent text-white transition hover:bg-openfmv-accent-hover"><ArrowRight size={18} /></button>
         </div>
-      ) : (
-        <div className={`grid gap-3 ${rules.length > 1 ? 'sm:grid-cols-2' : 'grid-cols-1 place-items-center'}`}>
-          {rules.map((rule) => (
-            <button key={rule.id} onClick={() => goNext(rule.condition || rule.keyword, rule.handleId)} className="group flex min-h-16 w-full max-w-xl items-center justify-between gap-3 rounded-[22px] border border-white/15 bg-white/10 px-5 py-4 text-left text-white shadow-[0_18px_60px_rgba(0,0,0,0.22)] backdrop-blur-3xl transition hover:-translate-y-0.5 hover:border-openfmv-accent/70 hover:bg-white/16">
-              <span className="min-w-0 break-words text-lg">{rule.condition || rule.keyword || '选项'}</span>
+      ) : choiceEffect ? (
+        <div className={`grid gap-3 ${choiceEffect.choices.length > 1 ? 'sm:grid-cols-2' : 'grid-cols-1 place-items-center'}`}>
+          {choiceEffect.choices.map((choice) => (
+            <button key={choice.id} onClick={() => dispatch({ type: 'choice.selected', input: choice.input, handleId: choice.handleId })} className="group flex min-h-16 w-full max-w-xl items-center justify-between gap-3 rounded-[22px] border border-white/15 bg-white/10 px-5 py-4 text-left text-white shadow-[0_18px_60px_rgba(0,0,0,0.22)] backdrop-blur-3xl transition hover:-translate-y-0.5 hover:border-openfmv-accent/70 hover:bg-white/16">
+              <span className="min-w-0 break-words text-lg">{choice.label}</span>
               <ArrowRight size={18} className="shrink-0 opacity-60 transition group-hover:translate-x-1 group-hover:opacity-100" />
             </button>
           ))}
         </div>
-      )}
+      ) : continueEffect ? (
+        <button onClick={() => dispatch({ type: 'continue' })} className="inline-flex items-center gap-2 rounded-full bg-openfmv-accent px-6 py-3 text-sm font-semibold text-white transition hover:bg-openfmv-accent-hover">{continueEffect.label}<ArrowRight size={16} /></button>
+      ) : null}
 
-      <Countdown seconds={Number(data.timeLimit) || 0} countdownKey={node.id} onTimeout={() => goNext()} />
+      {timerEffect && (
+        <Countdown seconds={timerEffect.seconds} countdownKey={timerEffect.key} onTimeout={() => dispatch({ type: 'timer.timeout' })} />
+      )}
     </div>
   );
 };
 
 export default function PlayerOverlay() {
-  const { isPlaying, currentNodeId, setCurrentNode, setIsPlaying, reset } = usePlayerStore();
+  const { isPlaying, setIsPlaying, reset } = usePlayerStore();
   const runtimeGraph = useRuntimeGraphStore();
   const nodes = runtimeGraph.nodes;
   const edges = runtimeGraph.edges;
-  const startNode = useMemo(() => nodes.find((node) => node.type === 'start') ?? nodes[0], [nodes]);
-  const currentNode = nodes.find((node) => node.id === currentNodeId) ?? startNode;
-  const data = (currentNode?.data || {}) as Record<string, any>;
-  const imageSrc = useResolvedMediaSrc(data.image);
-  const text = currentNode ? getNodeText(currentNode) : '';
-  const shouldShowControls = shouldShowRuntimeControls(currentNode, edges);
+  const runtime = useMemo(() => createRuntime({ nodes, edges }, { entryNodeId: runtimeGraph.entryNodeId }), [edges, nodes, runtimeGraph.entryNodeId]);
+  const [snapshot, setSnapshot] = useState<RuntimeSnapshot | null>(null);
+  const effects = snapshot?.effects || [];
+  const currentNode = snapshot?.currentNode ?? null;
+  const sceneEffect = getEffect(effects, 'scene');
+  const mediaEffect = getEffect(effects, 'playMedia');
+  const imageSrc = useResolvedMediaSrc(mediaEffect?.mediaType === 'image' ? mediaEffect.src : undefined);
+
+  useEffect(() => {
+    if (!isPlaying || nodes.length === 0) {
+      setSnapshot(null);
+      return;
+    }
+
+    setSnapshot(runtime.start());
+  }, [isPlaying, nodes.length, runtime]);
 
   const closePlayer = () => {
     runtimeGraph.resetGraph();
@@ -98,30 +126,21 @@ export default function PlayerOverlay() {
     setIsPlaying(false);
   };
 
-  const navigateTo = useCallback((targetNodeId: string | null) => {
-    if (!targetNodeId) {
-      setIsPlaying(false);
-      return;
-    }
-    setCurrentNode(targetNodeId);
-  }, [setCurrentNode, setIsPlaying]);
+  const dispatch = useCallback((event: RuntimeEvent) => {
+    setSnapshot(runtime.dispatch(event));
+  }, [runtime]);
 
-  const restart = () => {
-    if (!startNode) return;
-    setCurrentNode(startNode.id);
-  };
-
-  if (!isPlaying || !currentNode) return null;
+  if (!isPlaying || !snapshot) return null;
 
   return (
     <div className="fixed inset-0 z-[100] bg-[linear-gradient(135deg,#090b10,#15110d)] text-white">
       <div className="absolute left-4 top-4 z-50 flex items-center gap-2">
         <button onClick={closePlayer} className="flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.11] px-4 py-2 text-sm font-medium text-white/85 backdrop-blur-3xl transition hover:border-openfmv-accent/70 hover:text-white"><X size={16} />退出</button>
-        <button onClick={restart} className="flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.11] px-4 py-2 text-sm font-medium text-white/85 backdrop-blur-3xl transition hover:border-openfmv-accent/70 hover:text-white"><RotateCcw size={16} />重播</button>
+        <button onClick={() => dispatch({ type: 'restart' })} className="flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.11] px-4 py-2 text-sm font-medium text-white/85 backdrop-blur-3xl transition hover:border-openfmv-accent/70 hover:text-white"><RotateCcw size={16} />重播</button>
       </div>
 
       <div className="absolute inset-0 bg-black">
-        {data.image ? <img src={imageSrc} alt={getNodeTitle(currentNode)} className="h-full w-full object-contain" /> : data.video ? <OpenFMVVideo src={data.video} playbackId={data.videoPlaybackId} poster={data.videoThumbnail} autoPlay playsInline controls className="h-full w-full object-contain" /> : <div className="h-full w-full bg-[radial-gradient(circle_at_50%_24%,rgba(249,115,22,0.22),transparent_34%),radial-gradient(circle_at_78%_12%,rgba(255,255,255,0.09),transparent_30%),linear-gradient(135deg,#151821,#070a10_62%,#17120f)]" />}
+        {mediaEffect?.mediaType === 'image' ? <img src={imageSrc} alt={sceneEffect?.title || ''} className="h-full w-full object-contain" /> : mediaEffect?.mediaType === 'video' ? <OpenFMVVideo src={mediaEffect.src} playbackId={mediaEffect.playbackId} poster={mediaEffect.poster} autoPlay playsInline controls className="h-full w-full object-contain" /> : <div className="h-full w-full bg-[radial-gradient(circle_at_50%_24%,rgba(249,115,22,0.22),transparent_34%),radial-gradient(circle_at_78%_12%,rgba(255,255,255,0.09),transparent_30%),linear-gradient(135deg,#151821,#070a10_62%,#17120f)]" />}
         <div className="absolute inset-0 bg-gradient-to-b from-black/62 via-black/18 to-black/88" />
         <div className="absolute inset-x-0 bottom-0 h-1/2 bg-[radial-gradient(circle_at_50%_100%,rgba(249,115,22,0.15),transparent_45%)]" />
       </div>
@@ -129,17 +148,15 @@ export default function PlayerOverlay() {
       <div className="relative z-10 flex min-h-full flex-col justify-end px-5 py-8 md:px-12 md:py-12">
         <div className="mx-auto w-full max-w-5xl">
           <div className="mb-8 max-w-3xl">
-            <div className="mb-3 text-xs font-semibold uppercase tracking-[0.3em] text-openfmv-accent">{currentNode.type}</div>
-            <h1 className="text-4xl font-semibold tracking-tight drop-shadow-2xl md:text-6xl">{getNodeTitle(currentNode)}</h1>
-            {text && <p className="mt-5 whitespace-pre-wrap text-base leading-8 text-white/86 drop-shadow-lg md:text-xl md:leading-9">{text}</p>}
+            <div className="mb-3 text-xs font-semibold uppercase tracking-[0.3em] text-openfmv-accent">{sceneEffect?.nodeType || snapshot.status}</div>
+            <h1 className="text-4xl font-semibold tracking-tight drop-shadow-2xl md:text-6xl">{sceneEffect?.title || '播放结束'}</h1>
+            {sceneEffect?.text && <p className="mt-5 whitespace-pre-wrap text-base leading-8 text-white/86 drop-shadow-lg md:text-xl md:leading-9">{sceneEffect.text}</p>}
           </div>
 
-          {currentNode.type === 'end' ? (
-            <button onClick={restart} className="inline-flex items-center gap-2 rounded-full bg-openfmv-accent px-6 py-3 text-sm font-semibold text-white transition hover:bg-openfmv-accent-hover"><RotateCcw size={16} />重新开始</button>
-          ) : shouldShowControls ? (
-            <InteractionControls node={currentNode} edges={edges} onNavigate={navigateTo} />
+          {snapshot.status === 'ended' || currentNode?.type === 'end' ? (
+            <button onClick={() => dispatch({ type: 'restart' })} className="inline-flex items-center gap-2 rounded-full bg-openfmv-accent px-6 py-3 text-sm font-semibold text-white transition hover:bg-openfmv-accent-hover"><RotateCcw size={16} />重新开始</button>
           ) : (
-            <button onClick={() => navigateTo(resolveNextNodeId(currentNode, edges))} className="inline-flex items-center gap-2 rounded-full bg-openfmv-accent px-6 py-3 text-sm font-semibold text-white transition hover:bg-openfmv-accent-hover">继续<ArrowRight size={16} /></button>
+            <InteractionControls effects={effects} dispatch={dispatch} />
           )}
         </div>
       </div>

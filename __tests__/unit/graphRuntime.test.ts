@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { AppEdge, AppNode, OpenFMVGraph } from '@/app/_types';
-import { getEntryNodeId, getNodeText, getNodeTitle, getRuntimeChoiceRules, getRuntimeInteractionMode, getVisibleRules, resolveNextNodeId, shouldShowRuntimeControls } from '@/app/_utils/graphRuntime';
+import { createRuntime, getEntryNodeId, getNodeText, getNodeTitle, getRuntimeChoiceRules, getRuntimeInteractionMode, getVisibleRules, resolveNextNodeId, shouldShowRuntimeControls } from '@/app/_utils/graphRuntime';
 
 const node = (id: string, type: AppNode['type'], data: AppNode['data']): AppNode => ({
   id,
@@ -103,5 +103,52 @@ describe('graphRuntime', () => {
     ] as AppEdge[];
 
     expect(resolveNextNodeId(storyNode, edges)).toBe('first-target');
+  });
+
+  it('runs graph playback through the runtime core dispatch loop', () => {
+    const graph: OpenFMVGraph = {
+      nodes: [
+        interactiveStartNode,
+        storyNode,
+        node('end', 'end', { type: 'end', label: 'Finished' }),
+      ],
+      edges: [
+        { id: 'skip-edge', source: 'start', sourceHandle: 'skip', target: 'story' },
+        { id: 'finish-edge', source: 'story', target: 'end' },
+      ] as AppEdge[],
+    };
+    const runtime = createRuntime(graph, { entryNodeId: 'start' });
+
+    const start = runtime.start();
+    expect(start.currentNodeId).toBe('start');
+    expect(start.effects).toContainEqual(expect.objectContaining({ type: 'showChoices' }));
+
+    const story = runtime.dispatch({ type: 'choice.selected', input: 'Skip', handleId: 'skip' });
+    expect(story.currentNodeId).toBe('story');
+    expect(story.history).toEqual(['start', 'story']);
+    expect(story.effects).toContainEqual(expect.objectContaining({ type: 'showContinue' }));
+
+    const finished = runtime.dispatch({ type: 'continue' });
+    expect(finished.currentNodeId).toBe('end');
+    expect(finished.effects).toContainEqual(expect.objectContaining({ type: 'showRestart' }));
+  });
+
+  it('stores text input in runtime variables before resolving routes', () => {
+    const graph: OpenFMVGraph = {
+      nodes: [
+        interactionNode,
+        storyNode,
+      ],
+      edges: [
+        { id: 'left-edge', source: 'interaction', sourceHandle: 'left', target: 'story' },
+      ] as AppEdge[],
+    };
+    const runtime = createRuntime(graph, { entryNodeId: 'interaction' });
+    runtime.start();
+
+    const snapshot = runtime.dispatch({ type: 'input.submitted', value: 'go left' });
+
+    expect(snapshot.currentNodeId).toBe('story');
+    expect(snapshot.variables.lastInput).toBe('go left');
   });
 });

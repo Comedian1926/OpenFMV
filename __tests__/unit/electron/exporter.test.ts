@@ -274,15 +274,19 @@ describe('electron game exporter', () => {
 
     const html = await readFile(join(result.outputDirectory, 'resources', 'app', 'index.html'), 'utf8');
     expect(html).toContain('window.OpenFMVGraphRuntime');
+    expect(html).toContain('window.OpenFMVRuntimeCore');
     for (const functionName of graphRuntimeFunctionNames) {
       expect(html).toContain(functionName);
     }
-    expect(html).toContain('graphRuntime.resolveNextNodeId(node, graph.edges, choice)');
-    expect(html).toContain('graphRuntime.shouldShowRuntimeControls(node, graph.edges)');
+    expect(html).toContain('runtime = runtimeCore.createRuntime(game.graphData');
+    expect(html).toContain('snapshot = runtime.start()');
+    expect(html).toContain('snapshot = runtime.dispatch(event)');
+    expect(html).toContain('dispatchRuntimeEvent');
+    expect(html).toContain('buildNodeEffects');
     expect(html).toContain('normalizedInput.includes(condition) || condition.includes(normalizedInput)');
     expect(html).toContain("outgoing.find((edge) => edge.sourceHandle === 'else')?.target");
-    expect(html).toContain('nextFrom(current, { input: variables.lastInput })');
-    expect(html).toContain('go(entryNodeId())');
+    expect(html).toContain("send({ type: 'input.submitted'");
+    expect(html).toContain("send({ type: 'restart' })");
   });
 
   it('uses the shared player control rules for start node choices and terminal fallback', async () => {
@@ -330,8 +334,8 @@ describe('electron game exporter', () => {
     });
 
     const html = await readFile(join(result.outputDirectory, 'resources', 'app', 'index.html'), 'utf8');
-    expect(html).toContain('const rules = graphRuntime.getRuntimeChoiceRules(node)');
-    expect(html).toContain("const actionClass = rules.length > 1 ? 'actions actions-grid' : 'actions actions-single actions-center'");
+    expect(html).toContain("const choices = effect('showChoices')");
+    expect(html).toContain("const actionClass = choices.choices.length > 1 ? 'actions actions-grid' : 'actions actions-single actions-center'");
     expect(html).toContain('data-choice-input');
     expect(html).toContain('button.dataset.choiceInput');
     expect(html).toContain('actions actions-grid');
