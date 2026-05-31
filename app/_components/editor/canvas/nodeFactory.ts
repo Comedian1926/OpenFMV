@@ -3,6 +3,12 @@ import type { XYPosition } from '@xyflow/react';
 import { nodeRegistry } from '@/app/_registry/nodeRegistry';
 import { AppNode, NodeType } from '@/app/_types';
 
+export interface EditorNodeDefaults {
+  startLabel: string;
+  endLabel: string;
+  storyTitlePrefix: string;
+}
+
 export const getAvailableNodePosition = (position: XYPosition, nodes: AppNode[]) => {
   let nextPosition = position;
   let attempts = 0;
@@ -25,13 +31,13 @@ export const getAvailableNodePosition = (position: XYPosition, nodes: AppNode[])
   return nextPosition;
 };
 
-export const createEditorNode = (type: NodeType, position: XYPosition, nodes: AppNode[]): AppNode => {
+export const createEditorNode = (type: NodeType, position: XYPosition, nodes: AppNode[], defaults?: EditorNodeDefaults): AppNode => {
   const storyCount = nodes.filter((node) => node.type === 'story').length;
 
   return {
     id: crypto.randomUUID(),
     type,
     position,
-    data: nodeRegistry.createDefaultData(type, { storyCount }),
+    data: nodeRegistry.createDefaultData(type, { storyCount, ...defaults }),
   };
 };

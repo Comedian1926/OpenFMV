@@ -1,13 +1,14 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
-
-const MESSAGES = ['装载剧情引擎...', '整理节点画布...', '校准交互连线...', '准备本地素材...', '即将进入编辑器...'];
+import { useTranslations } from 'next-intl';
 
 const EditorLoading = () => {
+  const t = useTranslations('editor.loading');
+  const messages = useMemo(() => ['loadStoryEngine', 'organizeCanvas', 'calibrateConnections', 'prepareAssets', 'enterEditor'].map((key) => t(key)), [t]);
   const [progress, setProgress] = useState(0);
-  const [statusText, setStatusText] = useState('启动 OpenFMV 编辑器...');
+  const [statusText, setStatusText] = useState(t('start'));
 
   useEffect(() => {
     const startTime = Date.now();
@@ -16,11 +17,11 @@ const EditorLoading = () => {
       const elapsed = Date.now() - startTime;
       const nextProgress = Math.min((elapsed / duration) * 100, 99);
       setProgress(nextProgress);
-      const messageIndex = Math.floor((nextProgress / 100) * MESSAGES.length);
-      if (MESSAGES[messageIndex]) setStatusText(MESSAGES[messageIndex]);
+      const messageIndex = Math.floor((nextProgress / 100) * messages.length);
+      if (messages[messageIndex]) setStatusText(messages[messageIndex]);
     }, 100);
     return () => window.clearInterval(interval);
-  }, []);
+  }, [messages]);
 
   return (
     <div className="relative flex h-full w-full flex-col items-center justify-center overflow-hidden bg-white/[0.055] text-openfmv-text">

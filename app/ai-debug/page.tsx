@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { CheckCircle2, Loader2, RefreshCw, XCircle } from 'lucide-react';
 
 interface DebugAgent {
@@ -26,6 +27,8 @@ interface DebugPayload {
 }
 
 export default function AiDebugPage() {
+  const t = useTranslations('debug');
+  const settingsT = useTranslations('settings');
   const [payload, setPayload] = useState<DebugPayload | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
@@ -55,13 +58,13 @@ export default function AiDebugPage() {
       <div className="mx-auto max-w-6xl">
         <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
           <div>
-            <div className="text-xs font-semibold uppercase tracking-[0.18em] text-openfmv-muted">OpenFMV AI Debug</div>
-            <h1 className="mt-2 text-3xl font-semibold text-white">Assets</h1>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-openfmv-muted">OpenFMV local editor.</p>
+            <div className="text-xs font-semibold uppercase tracking-[0.18em] text-openfmv-muted">{t('eyebrow')}</div>
+            <h1 className="mt-2 text-3xl font-semibold text-white">{t('title')}</h1>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-openfmv-muted">{t('description')}</p>
           </div>
           <button type="button" onClick={() => void load()} disabled={isLoading} className="inline-flex h-10 items-center gap-2 rounded-[10px] border border-white/10 bg-white/[0.07] px-4 text-sm font-semibold text-white transition hover:bg-white/[0.11] disabled:opacity-50">
             {isLoading ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
-            重新扫描
+            {settingsT('rescan')}
           </button>
         </div>
 
@@ -71,11 +74,11 @@ export default function AiDebugPage() {
 
         <section className="mb-5 rounded-[14px] border border-white/10 bg-white/[0.035] p-4">
           <div className="grid gap-3 text-sm md:grid-cols-2">
-            <InfoLine label="Platform" value={payload?.platform || 'loading'} />
-            <InfoLine label="PATH entries" value={String(pathEntries.length)} />
+            <InfoLine label={t('platform')} value={payload?.platform || t('loading')} />
+            <InfoLine label={t('pathEntries')} value={String(pathEntries.length)} />
           </div>
           <div className="mt-4 rounded-[10px] border border-white/10 bg-black/20 p-3">
-            <div className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-openfmv-muted">Effective Search Dirs</div>
+            <div className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-openfmv-muted">{t('effectiveSearchDirs')}</div>
             <div className="max-h-48 overflow-auto font-mono text-xs leading-6 text-openfmv-sub">
               {pathEntries.map((entry) => <div key={entry}>{entry}</div>)}
             </div>
@@ -93,25 +96,25 @@ export default function AiDebugPage() {
                 <div>
                   <div className="flex items-center gap-2">
                     {agent.available ? <CheckCircle2 size={16} className="text-emerald-300" /> : <XCircle size={16} className="text-red-300" />}
-                    <h2 className="text-base font-semibold text-white">Settings</h2>
+                    <h2 className="text-base font-semibold text-white">{agent.name}</h2>
                     <span className="rounded-[8px] border border-white/10 bg-white/[0.06] px-2 py-1 font-mono text-xs text-openfmv-sub">{agent.bin}</span>
                   </div>
-                  <p className="mt-2 break-all font-mono text-xs text-openfmv-sub">OpenFMV local editor.</p>
+                  <p className="mt-2 break-all font-mono text-xs text-openfmv-sub">{agent.resolvedPath || t('notResolved')}</p>
                 </div>
                 <span className={`rounded-[8px] border px-2.5 py-1 text-xs font-semibold ${agent.available ? 'border-emerald-300/20 bg-emerald-300/10 text-emerald-200' : 'border-red-300/20 bg-red-300/10 text-red-200'}`}>
-                  {agent.available ? 'available' : 'missing'}
+                  {agent.available ? settingsT('installed') : settingsT('missing')}
                 </span>
               </div>
 
               <div className="mt-4 grid gap-3 md:grid-cols-3">
-                <InfoLine label="Version" value={agent.version || '-'} />
-                <InfoLine label="Probe args" value={agent.versionArgs.join(' ')} />
-                <InfoLine label="Probe code" value={agent.probeCode == null ? '-' : String(agent.probeCode)} />
+                <InfoLine label={t('version')} value={agent.version || '-'} />
+                <InfoLine label={t('probeArgs')} value={agent.versionArgs.join(' ')} />
+                <InfoLine label={t('probeCode')} value={agent.probeCode == null ? '-' : String(agent.probeCode)} />
               </div>
 
               <div className="mt-3 grid gap-3 md:grid-cols-2">
-                <DebugBlock title="Candidate names" lines={agent.candidateBins} />
-                <DebugBlock title="Probe output" lines={[agent.probeOutput || agent.probeError || '-']} />
+                <DebugBlock title={t('candidateNames')} lines={agent.candidateBins} />
+                <DebugBlock title={t('probeOutput')} lines={[agent.probeOutput || agent.probeError || '-']} />
               </div>
             </article>
           ))}

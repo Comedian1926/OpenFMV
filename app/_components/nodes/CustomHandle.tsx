@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { useTranslations } from 'next-intl';
 import { Handle, HandleProps, useNodeId, useReactFlow } from '@xyflow/react';
 import { ChevronRight } from 'lucide-react';
+
 import { useEditorStore } from '../../_store/useEditorStore';
 import { AppNode, NodeType } from '../../_types';
 import { nodeRegistry } from '../../_registry/nodeRegistry';
@@ -11,6 +13,7 @@ interface CustomHandleProps extends HandleProps {
 }
 
 export const CustomHandle = ({ className, ...props }: CustomHandleProps) => {
+  const t = useTranslations('editor');
   const isTarget = props.type === 'target';
   const nodeId = useNodeId();
   const { getNode, getNodes, getEdges } = useReactFlow();
@@ -46,10 +49,14 @@ export const CustomHandle = ({ className, ...props }: CustomHandleProps) => {
         y: sourceNode.position.y
     };
 
-    const newNode = createEditorNode(type, newPosition, getNodes() as unknown as AppNode[]);
+    const newNode = createEditorNode(type, newPosition, getNodes() as unknown as AppNode[], {
+      startLabel: t('startNode'),
+      endLabel: t('endNode'),
+      storyTitlePrefix: t('storyTitlePrefix'),
+    });
     const enhancedData =
       type === 'interaction'
-        ? { ...newNode.data, elseLabel: '默认路径' } as AppNode['data']
+        ? { ...newNode.data, elseLabel: t('defaultPath') } as AppNode['data']
         : newNode.data;
     newNode.data = enhancedData;
 
@@ -61,7 +68,7 @@ export const CustomHandle = ({ className, ...props }: CustomHandleProps) => {
     });
 
     setShowMenu(false);
-  }, [nodeId, getNode, addNodeAndConnect, props.id, getNodes]);
+  }, [nodeId, getNode, addNodeAndConnect, props.id, getNodes, t]);
 
   const handleClick = (e: React.MouseEvent) => {
     if (isTarget) return;
@@ -123,7 +130,7 @@ export const CustomHandle = ({ className, ...props }: CustomHandleProps) => {
                 onClick={(e) => e.stopPropagation()}
             >
                 <div className="px-2 py-1.5 text-[10px] font-medium text-openfmv-muted uppercase tracking-wider">
-                    添加下一个节点
+                    {t('addNextNode')}
                 </div>
                 
                 {nodeRegistry.getByPlacement('quickAdd').map((definition) => {
@@ -135,7 +142,7 @@ export const CustomHandle = ({ className, ...props }: CustomHandleProps) => {
                       className="flex items-center gap-2 px-2 py-1.5 text-sm text-openfmv-text hover:bg-white/[0.08] hover:text-openfmv-accent rounded transition-colors text-left"
                     >
                       <Icon size={14} />
-                      <span>{definition.displayName}</span>
+                      <span>{t(`nodeTypes.${definition.type}.name`)}</span>
                     </button>
                   );
                 })}

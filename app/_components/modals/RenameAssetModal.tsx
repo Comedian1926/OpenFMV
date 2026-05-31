@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { Edit3, Loader2 } from 'lucide-react';
 
 import { Button } from '@/app/_components/ui/button';
@@ -28,6 +29,7 @@ export function RenameAssetModal({
   onConfirm,
   currentName,
 }: RenameAssetModalProps) {
+  const t = useTranslations('assets.modal');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [name, setName] = useState(currentName);
 
@@ -59,30 +61,30 @@ export function RenameAssetModal({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Edit3 className="h-5 w-5 text-openfmv-accent" />
-            重命名资产
+            {t('renameTitle')}
           </DialogTitle>
-          <DialogDescription>输入新的资产名称。</DialogDescription>
+          <DialogDescription>{t('renameDescription')}</DialogDescription>
         </DialogHeader>
         <div className="space-y-2">
           <Label htmlFor="asset-name" className="text-openfmv-sub">
-            资产名称
+            {t('assetName')}
           </Label>
           <Input
             id="asset-name"
             value={name}
             onChange={(event) => setName(event.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="输入新的名称"
+            placeholder={t('namePlaceholder')}
             autoFocus
           />
         </div>
         <DialogFooter>
           <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
-            取消
+            {t('cancel')}
           </Button>
           <Button onClick={handleConfirm} disabled={isSubmitting || !name.trim()}>
             {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            {isSubmitting ? 'Saving' : 'Save'}
+            {isSubmitting ? t('saving') : t('save')}
           </Button>
         </DialogFooter>
       </DialogContent>

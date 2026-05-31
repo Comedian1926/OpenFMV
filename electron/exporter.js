@@ -252,9 +252,45 @@ app.on('window-all-closed', () => {
 });
 `;
 
-const createGameShellHtml = (gameJson, graphRuntimeScript = '') => `
+const exportPlayerMessages = {
+  'zh-CN': {
+    playEnded: '播放结束',
+    restart: '重新开始',
+    continue: '继续',
+    answerPlaceholder: '输入你的回答...',
+    swipeUnlock: '滑动解锁',
+  },
+  en: {
+    playEnded: 'Playback ended',
+    restart: 'Restart',
+    continue: 'Continue',
+    answerPlaceholder: 'Enter your answer...',
+    swipeUnlock: 'Swipe to unlock',
+  },
+  ja: {
+    playEnded: '再生が終了しました',
+    restart: '最初から',
+    continue: '続ける',
+    answerPlaceholder: '回答を入力...',
+    swipeUnlock: 'スワイプして解除',
+  },
+  ko: {
+    playEnded: '재생 종료',
+    restart: '다시 시작',
+    continue: '계속',
+    answerPlaceholder: '답변을 입력하세요...',
+    swipeUnlock: '밀어서 잠금 해제',
+  },
+};
+
+const getExportLocale = (config) => Object.prototype.hasOwnProperty.call(exportPlayerMessages, config?.locale) ? config.locale : 'zh-CN';
+
+const createGameShellHtml = (gameJson, graphRuntimeScript = '') => {
+  const game = JSON.parse(gameJson);
+  const locale = getExportLocale({ locale: game.metadata?.locale });
+  return `
 <!doctype html>
-<html>
+<html lang="${locale}">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -307,12 +343,16 @@ const createGameShellHtml = (gameJson, graphRuntimeScript = '') => `
   <script>
     const appRoot = document.getElementById('app');
     const runtimeCore = window.OpenFMVRuntimeCore;
+    const playerMessagesByLocale = ${JSON.stringify(exportPlayerMessages)};
+    let playerMessages = playerMessagesByLocale['${locale}'] || playerMessagesByLocale['zh-CN'];
     let runtime = null;
     let snapshot = null;
     let countdownTimer = null;
 
     const escapeHtml = (value) => String(value || '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
     const effect = (type) => (snapshot && snapshot.effects || []).find((item) => item.type === type);
+    const t = (key) => playerMessages[key] || playerMessagesByLocale['zh-CN'][key] || key;
+    const translatedDefault = (value, key) => value === playerMessagesByLocale['zh-CN'][key] ? t(key) : value;
 
     const send = (event) => {
       snapshot = runtime.dispatch(event);
@@ -323,15 +363,15 @@ const createGameShellHtml = (gameJson, graphRuntimeScript = '') => `
 
     const renderActions = () => {
       if (!snapshot || snapshot.status === 'ended' || (snapshot.currentNode && snapshot.currentNode.type === 'end')) {
-        return '<div class="actions actions-single actions-start"><button class="action-button" data-restart="1"><span class="action-label">重新开始</span><span class="action-arrow">↻</span></button></div>';
+        return '<div class="actions actions-single actions-start"><button class="action-button" data-restart="1"><span class="action-label">' + escapeHtml(t('restart')) + '</span><span class="action-arrow">↻</span></button></div>';
       }
       const input = effect('showInput');
       if (input) {
-        return '<div class="controls">' + promptHtml(input.prompt) + '<div class="input-row"><input id="answer" placeholder="' + escapeHtml(input.placeholder) + '" /><button class="icon-button" data-input="1">→</button></div></div>';
+        return '<div class="controls">' + promptHtml(input.prompt) + '<div class="input-row"><input id="answer" placeholder="' + escapeHtml(translatedDefault(input.placeholder, 'answerPlaceholder')) + '" /><button class="icon-button" data-input="1">→</button></div></div>';
       }
       const slider = effect('showSlider');
       if (slider) {
-        return '<div class="controls">' + promptHtml(slider.prompt) + '<div class="actions actions-single actions-center"><button class="action-button" data-slider="1" data-handle="' + escapeHtml(slider.handleId) + '"><span class="action-label">' + escapeHtml(slider.label) + '</span><span class="action-arrow">→</span></button></div></div>';
+        return '<div class="controls">' + promptHtml(slider.prompt) + '<div class="actions actions-single actions-center"><button class="action-button" data-slider="1" data-handle="' + escapeHtml(slider.handleId) + '"><span class="action-label">' + escapeHtml(translatedDefault(slider.label, 'swipeUnlock')) + '</span><span class="action-arrow">→</span></button></div></div>';
       }
       const choices = effect('showChoices');
       if (choices) {
@@ -339,7 +379,7 @@ const createGameShellHtml = (gameJson, graphRuntimeScript = '') => `
         return '<div class="controls">' + promptHtml(choices.prompt) + '<div class="' + actionClass + '">' + choices.choices.map((choice) => '<button class="action-button" data-choice-input="' + escapeHtml(choice.input) + '" data-handle="' + escapeHtml(choice.handleId) + '"><span class="action-label">' + escapeHtml(choice.label) + '</span><span class="action-arrow">→</span></button>').join('') + '</div></div>';
       }
       const next = effect('showContinue');
-      return next ? '<div class="actions actions-single actions-start"><button class="action-button" data-next="1"><span class="action-label">' + escapeHtml(next.label) + '</span><span class="action-arrow">→</span></button></div>' : '';
+      return next ? '<div class="actions actions-single actions-start"><button class="action-button" data-next="1"><span class="action-label">' + escapeHtml(translatedDefault(next.label, 'continue')) + '</span><span class="action-arrow">→</span></button></div>' : '';
     };
 
     const render = () => {
@@ -351,7 +391,7 @@ const createGameShellHtml = (gameJson, graphRuntimeScript = '') => `
       const mediaEffect = effect('playMedia');
       const timerEffect = effect('startTimer');
       if (!snapshot || !scene) {
-        appRoot.innerHTML = '<div class="scene"><div class="shade"></div><div class="bottom-glow"></div><main class="content"><div class="content-inner"><div class="story-copy"><h1>播放结束</h1></div>' + renderActions() + '</div></main></div>';
+        appRoot.innerHTML = '<div class="scene"><div class="shade"></div><div class="bottom-glow"></div><main class="content"><div class="content-inner"><div class="story-copy"><h1>' + escapeHtml(t('playEnded')) + '</h1></div>' + renderActions() + '</div></main></div>';
         appRoot.querySelector('[data-restart]')?.addEventListener('click', () => send({ type: 'restart' }));
         return;
       }
@@ -395,6 +435,7 @@ const createGameShellHtml = (gameJson, graphRuntimeScript = '') => `
 
     try {
       const game = JSON.parse(document.getElementById('game-data').textContent);
+      playerMessages = playerMessagesByLocale[game.metadata && game.metadata.locale] || playerMessagesByLocale['zh-CN'];
       runtime = runtimeCore.createRuntime(game.graphData, { entryNodeId: game.metadata && game.metadata.entryNodeId });
       snapshot = runtime.start();
       render();
@@ -405,6 +446,7 @@ const createGameShellHtml = (gameJson, graphRuntimeScript = '') => `
 </body>
 </html>
 `;
+};
 
 const exportGamePackage = async ({ project, config, electronExecutablePath, electronRuntimeDir, isDev }) => {
   const gameTitle = sanitizeName(config.gameTitle || project.title);
@@ -463,6 +505,7 @@ const exportGamePackage = async ({ project, config, electronExecutablePath, elec
     metadata: {
       ...project.metadata,
       entryNodeId: config.entryNodeId,
+      locale: getExportLocale(config),
       resolution: config.resolution,
       windowMode: config.windowMode,
       includeDebugOverlay: config.includeDebugOverlay,

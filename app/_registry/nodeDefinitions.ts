@@ -8,6 +8,9 @@ export type NodeMenuPlacement = 'toolbar' | 'pendingConnect' | 'edgeMenu' | 'qui
 
 export interface NodeFactoryContext {
   storyCount: number;
+  startLabel?: string;
+  endLabel?: string;
+  storyTitlePrefix?: string;
 }
 
 export interface NodeDefinition {
@@ -37,9 +40,9 @@ export const NODE_DEFINITIONS: NodeDefinition[] = [
       edgeMenu: false,
       quickAdd: false,
     },
-    createDefaultData: () => ({
+    createDefaultData: (context) => ({
       type: 'start',
-      label: '开始',
+      label: context.startLabel || '开始',
       rules: [],
     }),
   },
@@ -59,7 +62,7 @@ export const NODE_DEFINITIONS: NodeDefinition[] = [
     },
     createDefaultData: (context) => ({
       type: 'story',
-      title: `剧情节点-${context.storyCount + 1}`,
+      title: `${context.storyTitlePrefix || '剧情节点'}-${context.storyCount + 1}`,
       content: '',
     }),
   },
@@ -96,9 +99,9 @@ export const NODE_DEFINITIONS: NodeDefinition[] = [
       edgeMenu: false,
       quickAdd: true,
     },
-    createDefaultData: () => ({
+    createDefaultData: (context) => ({
       type: 'end',
-      label: '结束',
+      label: context.endLabel || '结束',
     }),
   },
 ];

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { FolderOpen, LayoutList, MousePointer2, Plus, UserRound, X } from 'lucide-react';
 import { NodeType } from '../../_types';
 import { nodeRegistry } from '../../_registry/nodeRegistry';
@@ -14,6 +15,8 @@ interface FloatingToolbarProps {
 }
 
 export default function FloatingToolbar({ onAddNode, onLayout, toolMode, onToolModeChange, onOpenAssets }: FloatingToolbarProps) {
+  const t = useTranslations('editor');
+  const assetsT = useTranslations('assets');
   const [showAddMenu, setShowAddMenu] = useState(false);
 
   const handleAdd = (type: NodeType) => {
@@ -24,22 +27,22 @@ export default function FloatingToolbar({ onAddNode, onLayout, toolMode, onToolM
   return (
     <div className="absolute left-5 top-1/2 z-50 flex -translate-y-1/2 items-start gap-3">
       <div className="flex flex-col items-center rounded-full border border-white/10 bg-white/[0.08] p-1.5 shadow-[0_24px_80px_rgba(0,0,0,0.42)] backdrop-blur-3xl">
-        <button onClick={() => setShowAddMenu(!showAddMenu)} className={`relative flex h-12 w-12 items-center justify-center rounded-full transition-all duration-300 ${showAddMenu ? 'bg-white/[0.16] text-white' : 'bg-white text-[#111] hover:scale-105'}`} title="添加节点">
+        <button onClick={() => setShowAddMenu(!showAddMenu)} className={`relative flex h-12 w-12 items-center justify-center rounded-full transition-all duration-300 ${showAddMenu ? 'bg-white/[0.16] text-white' : 'bg-white text-[#111] hover:scale-105'}`} title={t('addNode')}>
           {showAddMenu ? <X size={22} /> : <Plus size={24} />}
           <span className="absolute right-1 top-1 h-2.5 w-2.5 rounded-full bg-sky-400" />
         </button>
         <div className="my-2 h-px w-8 bg-white/10" />
-        <button onClick={onOpenAssets} className="flex h-11 w-11 items-center justify-center rounded-full text-openfmv-sub transition hover:bg-white/[0.10] hover:text-white" title="素材库">
+        <button onClick={onOpenAssets} className="flex h-11 w-11 items-center justify-center rounded-full text-openfmv-sub transition hover:bg-white/[0.10] hover:text-white" title={assetsT('title')}>
           <FolderOpen size={20} />
         </button>
-        <button onClick={() => onToolModeChange(toolMode === 'hand' ? 'select' : 'hand')} className={`flex h-11 w-11 items-center justify-center rounded-full transition ${toolMode === 'select' ? 'bg-white/[0.12] text-white' : 'text-openfmv-sub hover:bg-white/[0.10] hover:text-white'}`} title="选择工具">
+        <button onClick={() => onToolModeChange(toolMode === 'hand' ? 'select' : 'hand')} className={`flex h-11 w-11 items-center justify-center rounded-full transition ${toolMode === 'select' ? 'bg-white/[0.12] text-white' : 'text-openfmv-sub hover:bg-white/[0.10] hover:text-white'}`} title={t('selectTool')}>
           <MousePointer2 size={20} />
         </button>
-        <button onClick={onLayout} className="flex h-11 w-11 items-center justify-center rounded-full text-openfmv-sub transition hover:bg-white/[0.10] hover:text-white" title="自动整理">
+        <button onClick={onLayout} className="flex h-11 w-11 items-center justify-center rounded-full text-openfmv-sub transition hover:bg-white/[0.10] hover:text-white" title={t('autoLayout')}>
           <LayoutList size={20} />
         </button>
         <div className="my-2 h-px w-8 bg-white/10" />
-        <button className="grid h-12 w-12 place-items-center rounded-full border border-white/10 bg-white/[0.08] text-openfmv-sub transition hover:bg-white/[0.12] hover:text-white" title="个人空间">
+        <button className="grid h-12 w-12 place-items-center rounded-full border border-white/10 bg-white/[0.08] text-openfmv-sub transition hover:bg-white/[0.12] hover:text-white" title={t('personalSpace')}>
           <UserRound size={19} />
         </button>
       </div>
@@ -47,7 +50,7 @@ export default function FloatingToolbar({ onAddNode, onLayout, toolMode, onToolM
       {showAddMenu && (
         <div className="min-w-[286px] overflow-hidden rounded-[18px] border border-white/10 bg-[#1f2024]/92 p-3 text-openfmv-text shadow-[0_24px_90px_rgba(0,0,0,0.52)] backdrop-blur-3xl">
           <div className="border-b border-white/15 px-4 py-3">
-            <div className="text-xs font-semibold text-openfmv-muted">添加节点</div>
+            <div className="text-xs font-semibold text-openfmv-muted">{t('addNode')}</div>
           </div>
 
           <div className="flex flex-col gap-2 p-1 pt-3">
@@ -59,8 +62,8 @@ export default function FloatingToolbar({ onAddNode, onLayout, toolMode, onToolM
                     <Icon size={18} />
                   </div>
                   <div className="min-w-0">
-                    <div className="text-sm font-semibold text-openfmv-text group-hover:text-white">{definition.displayName}</div>
-                    <div className="mt-0.5 truncate text-xs text-openfmv-muted group-hover:text-openfmv-sub">{definition.menuDescription}</div>
+                    <div className="text-sm font-semibold text-openfmv-text group-hover:text-white">{t(`nodeTypes.${definition.type}.name`)}</div>
+                    <div className="mt-0.5 truncate text-xs text-openfmv-muted group-hover:text-openfmv-sub">{t(`nodeTypes.${definition.type}.description`)}</div>
                   </div>
                 </button>
               );

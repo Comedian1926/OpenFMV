@@ -37,6 +37,7 @@ export interface OpenFMVProject {
 export interface GameExportConfig {
   gameTitle: string;
   outputDirectory: string;
+  locale?: string;
   entryNodeId?: string;
   windowMode: 'windowed' | 'fullscreen' | 'borderless';
   resolution: {

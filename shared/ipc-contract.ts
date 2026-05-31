@@ -60,6 +60,7 @@ const projectSchema: z.ZodType<OpenFMVProject> = z.object({
 const gameExportConfigSchema: z.ZodType<GameExportConfig> = z.object({
   gameTitle: nonEmptyString,
   outputDirectory: nonEmptyString,
+  locale: z.string().optional(),
   entryNodeId: z.string().optional(),
   windowMode: enumFrom(['windowed', 'fullscreen', 'borderless']),
   resolution: z.object({

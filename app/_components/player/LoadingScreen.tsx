@@ -2,8 +2,10 @@
 
 import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
+import { useTranslations } from 'next-intl';
 
 export default function LoadingScreen({ onComplete }: { onComplete: () => void }) {
+  const t = useTranslations('player');
   const [progress, setProgress] = useState(0);
 
   useEffect(() => {
@@ -30,7 +32,7 @@ export default function LoadingScreen({ onComplete }: { onComplete: () => void }
       <div className="relative mb-8 flex h-20 w-20 items-center justify-center overflow-hidden rounded-[28px] border border-white/15 bg-white/[0.10] shadow-[0_24px_90px_rgba(0,0,0,0.34)] backdrop-blur-3xl">
         <Image src="/logo.png" alt="OpenFMV Logo" fill sizes="80px" className="object-cover opacity-90" />
       </div>
-      <div className="mb-3 text-sm font-medium uppercase tracking-[0.28em] text-openfmv-sub">正在进入你的世界</div>
+      <div className="mb-3 text-sm font-medium uppercase tracking-[0.28em] text-openfmv-sub">{t('enteringWorld')}</div>
       <div className="mb-8 font-mono text-4xl font-bold text-openfmv-accent">{Math.round(progress)}%</div>
       <div className="h-1.5 w-72 overflow-hidden rounded-full border border-white/10 bg-white/[0.10] backdrop-blur-3xl">
         <div className="h-full rounded-full bg-openfmv-accent transition-all duration-100 ease-out shadow-[0_0_22px_rgba(249,115,22,0.42)]" style={{ width: `${progress}%` }} />

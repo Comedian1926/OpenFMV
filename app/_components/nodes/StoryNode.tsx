@@ -1,4 +1,5 @@
 import React, { memo, useEffect, useRef, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { Position, NodeProps } from '@xyflow/react';
 import { FileText, Image as ImageIcon, Loader2, Type, Video as VideoIcon, X } from 'lucide-react';
 
@@ -12,8 +13,10 @@ import { CustomHandle } from './CustomHandle';
 import { nodeHeaderIconClassName, nodeTitleInputClassName, nodeTypeBadgeClassName } from './nodeStyles';
 
 const StoryNode = ({ id, data }: NodeProps<AppNode>) => {
+  const t = useTranslations('editor');
+  const assetsT = useTranslations('assets');
   const { currentProjectId, updateNodeData } = useEditorStore();
-  const title = data.type === 'story' ? data.title : 'Story';
+  const title = data.type === 'story' ? data.title : t('nodeTypes.story.name');
   const video = data.type === 'story' ? data.video : undefined;
   const videoPlaybackId = data.type === 'story' ? data.videoPlaybackId : undefined;
   const image = data.type === 'story' ? data.image : undefined;
@@ -49,7 +52,7 @@ const StoryNode = ({ id, data }: NodeProps<AppNode>) => {
       }
     } catch (error) {
       console.error('Import error:', error);
-      alert('Import failed: ' + (error instanceof Error ? error.message : 'Unknown error'));
+      alert(`${assetsT('importFailed')}: ${error instanceof Error ? error.message : t('unknownError')}`);
     } finally {
       setIsImporting(false);
     }
@@ -65,7 +68,7 @@ const StoryNode = ({ id, data }: NodeProps<AppNode>) => {
       applyAssetToNode(asset);
     } catch (error) {
       console.error('Import error:', error);
-      alert('Import failed: ' + (error instanceof Error ? error.message : 'Unknown error'));
+      alert(`${assetsT('importFailed')}: ${error instanceof Error ? error.message : t('unknownError')}`);
     } finally {
       setIsImporting(false);
       event.target.value = '';
@@ -79,15 +82,15 @@ const StoryNode = ({ id, data }: NodeProps<AppNode>) => {
       <div className="w-[320px] overflow-hidden rounded-lg border border-white/12 bg-[#1f1f1f] shadow-[0_18px_50px_rgba(0,0,0,0.34)] transition group-hover:border-white/28">
         <div className="flex h-11 items-center gap-2 border-b border-white/10 bg-white/[0.045] px-3">
           <div className={nodeHeaderIconClassName}><FileText size={15} /></div>
-          <input value={localTitle} onChange={(event) => { setLocalTitle(event.target.value); debouncedUpdateTitle(event.target.value); }} className={nodeTitleInputClassName} placeholder="Story" />
-          <div className={nodeTypeBadgeClassName}>Story</div>
+          <input value={localTitle} onChange={(event) => { setLocalTitle(event.target.value); debouncedUpdateTitle(event.target.value); }} className={nodeTitleInputClassName} placeholder={t('nodeTypes.story.name')} />
+          <div className={nodeTypeBadgeClassName}>{t('nodeTypes.story.name')}</div>
         </div>
 
         <div className="space-y-3 p-3">
           <div className="group/media relative aspect-video overflow-hidden rounded-md border border-white/10 bg-black">
             {image ? (
               <>
-                <img src={imageSrc} alt="Story media" className="h-full w-full object-contain" />
+                <img src={imageSrc} alt={t('storyMediaAlt')} className="h-full w-full object-contain" />
                 <button onClick={(event) => { event.stopPropagation(); removeMedia(); }} className="absolute right-2 top-2 z-10 rounded-md bg-black/55 p-1.5 text-white opacity-0 transition hover:bg-red-500/85 group-hover/media:opacity-100"><X size={14} /></button>
               </>
             ) : video ? (
@@ -98,13 +101,13 @@ const StoryNode = ({ id, data }: NodeProps<AppNode>) => {
             ) : (
               <div onClick={() => void handleImportClick()} className="absolute inset-0 grid cursor-pointer place-items-center bg-white/[0.02] transition hover:bg-white/[0.06]">
                 {isImporting ? (
-                  <div className="flex items-center gap-2 text-xs font-semibold text-openfmv-accent"><Loader2 size={16} className="animate-spin" />Importing</div>
+                  <div className="flex items-center gap-2 text-xs font-semibold text-openfmv-accent"><Loader2 size={16} className="animate-spin" />{assetsT('importing')}</div>
                 ) : (
                   <div className="flex items-center gap-2 text-xs font-semibold text-openfmv-muted">
                     <VideoIcon size={15} />
                     <ImageIcon size={15} />
                     <Type size={15} />
-                    <span>Import media or text</span>
+                    <span>{t('importMediaOrText')}</span>
                     <input ref={fileInputRef} type="file" className="hidden" accept="video/*,image/*,.txt,.md" onClick={(event) => event.stopPropagation()} onChange={handleFileUpload} />
                   </div>
                 )}

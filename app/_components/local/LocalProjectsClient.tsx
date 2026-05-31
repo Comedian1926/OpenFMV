@@ -3,39 +3,37 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useLocale, useTranslations } from 'next-intl';
 import { Clock3, Copy, Download, Edit3, FileJson, FileText, Film, Grid2X2, Image as ImageIcon, Layout, Library, List, MoreHorizontal, PackageOpen, Play, Plus, Search, Settings, Trash2, Upload } from 'lucide-react';
 import BorderGlow from '@/app/_components/ui/BorderGlow';
 import OpenFMVAiSettingsCenter from '@/app/_components/local/OpenFMVAiSettingsCenter';
 import { AppNode, OpenFMVAsset, OpenFMVProject } from '@/app/_types';
 import { createAndSaveLocalProject, deleteLocalProject, exportProjectJson, importAssetFromFile, listLocalProjects, openLocalProject, registerLocalProject, saveLocalProject } from '@/app/_utils/localProjects';
+import { getLocalizedPath } from '@/app/_utils/localePaths';
 import { resolveMediaSrc } from '@/app/_utils/mediaSrc';
 
 const upgradeCards = [
   {
-    title: '节点叙事',
-    description: '组织剧情分支',
+    key: 'nodeStory',
     className: 'from-cyan-300/16 via-white/6 to-[#202020]',
   },
   {
-    title: '互动预览',
-    description: '直接试玩故事',
+    key: 'interactivePreview',
     className: 'from-fuchsia-300/14 via-white/5 to-[#202020]',
   },
   {
-    title: '素材管理',
-    description: '集中管理素材',
+    key: 'assetManagement',
     className: 'from-sky-300/12 via-white/4 to-[#202020]',
   },
   {
-    title: '本地导出',
-    description: '导出故事包',
+    key: 'localExport',
     className: 'from-violet-300/12 via-white/5 to-[#202020]',
   },
 ];
 
 const sidebarItems = [
-  { label: '工作台', icon: Layout, action: 'home' },
-  { label: '素材库', icon: ImageIcon, action: 'assets' },
+  { labelKey: 'workspace', icon: Layout, action: 'home' },
+  { labelKey: 'assetLibrary', icon: ImageIcon, action: 'assets' },
 ] as const;
 
 type WorkspaceView = 'home' | 'assets';
@@ -46,18 +44,18 @@ interface ProjectAsset {
   project: OpenFMVProject;
 }
 
-const assetFilters: Array<{ label: string; value: AssetFilter }> = [
-  { label: '全部', value: 'all' },
-  { label: '图片', value: 'image' },
-  { label: '视频', value: 'video' },
-  { label: '音频', value: 'audio' },
-  { label: '文本', value: 'text' },
+const assetFilters: AssetFilter[] = [
+  'all',
+  'image',
+  'video',
+  'audio',
+  'text',
 ];
 
-const formatProjectTime = (value: string) => {
+const formatProjectTime = (value: string, locale: string, justNow: string) => {
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '刚刚';
-  return new Intl.DateTimeFormat('zh-CN', {
+  if (Number.isNaN(date.getTime())) return justNow;
+  return new Intl.DateTimeFormat(locale, {
     month: '2-digit',
     day: '2-digit',
     hour: '2-digit',
@@ -81,10 +79,10 @@ const getProjectCover = (project: OpenFMVProject) => {
   return project.assets.find((asset) => asset.type === 'image')?.path || '';
 };
 
-const formatAssetTime = (value: string) => {
+const formatAssetTime = (value: string, locale: string, justNow: string) => {
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '刚刚';
-  return new Intl.DateTimeFormat('zh-CN', {
+  if (Number.isNaN(date.getTime())) return justNow;
+  return new Intl.DateTimeFormat(locale, {
     month: '2-digit',
     day: '2-digit',
     hour: '2-digit',
@@ -92,8 +90,8 @@ const formatAssetTime = (value: string) => {
   }).format(date);
 };
 
-const formatFileSize = (value: unknown) => {
-  if (typeof value !== 'number' || Number.isNaN(value)) return '未知大小';
+const formatFileSize = (value: unknown, unknownSize: string) => {
+  if (typeof value !== 'number' || Number.isNaN(value)) return unknownSize;
   if (value < 1024) return `${value} B`;
   if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
   return `${(value / 1024 / 1024).toFixed(1)} MB`;
@@ -112,10 +110,15 @@ const getTextPreview = (asset: OpenFMVAsset) => {
   return content.replace(/\s+/g, ' ').trim().slice(0, 120);
 };
 
-const getAssetStudioHref = (projectId: string, assetId: string) => `/asset-studio?projectId=${encodeURIComponent(projectId)}&assetId=${encodeURIComponent(assetId)}`;
+const getAssetStudioHref = (locale: string, projectId: string, assetId: string) => getLocalizedPath(locale, `/asset-studio?projectId=${encodeURIComponent(projectId)}&assetId=${encodeURIComponent(assetId)}`);
+const getEditorHref = (locale: string, projectId: string) => getLocalizedPath(locale, `/editor?id=${projectId}`);
+const getPlayHref = (locale: string, projectId: string) => getLocalizedPath(locale, `/play/${projectId}`);
 
 export default function LocalProjectsClient() {
   const router = useRouter();
+  const locale = useLocale();
+  const t = useTranslations('projects');
+  const assetsT = useTranslations('assets');
   const searchInputRef = useRef<HTMLInputElement>(null);
   const projectFileInputRef = useRef<HTMLInputElement>(null);
   const assetFileInputRef = useRef<HTMLInputElement>(null);
@@ -175,11 +178,11 @@ export default function LocalProjectsClient() {
   }, [assetFilter, assetQuery, assets]);
 
   const handleCreate = async (name?: string) => {
-    const projectTitle = (name ?? title).trim() || '未命名项目';
+    const projectTitle = (name ?? title).trim() || t('untitledProject');
     const project = await createAndSaveLocalProject(projectTitle);
     setTitle('');
     refreshProjects();
-    router.push(`/editor?id=${project.id}`);
+    router.push(getEditorHref(locale, project.id));
   };
 
   const handleOpenProject = async () => {
@@ -190,10 +193,10 @@ export default function LocalProjectsClient() {
         return;
       }
       refreshProjects();
-      router.push(`/editor?id=${project.id}`);
+      router.push(getEditorHref(locale, project.id));
     } catch (error) {
       console.error('Failed to open local project', error);
-      alert('打开本地项目失败');
+      alert(t('openProjectFailed'));
     }
   };
 
@@ -204,28 +207,28 @@ export default function LocalProjectsClient() {
       const content = await file.text();
       const parsed = JSON.parse(content) as OpenFMVProject;
       if (!parsed?.id || !parsed?.title || !parsed?.graphData) {
-        alert('项目文件格式不正确');
+        alert(t('invalidProjectFile'));
         return;
       }
       const importedProject = registerLocalProject(parsed);
       refreshProjects();
-      router.push(`/editor?id=${importedProject.id}`);
+      router.push(getEditorHref(locale, importedProject.id));
     } catch (error) {
       console.error('Failed to import project file', error);
-      alert('导入项目文件失败');
+      alert(t('importProjectFailed'));
     } finally {
       if (projectFileInputRef.current) projectFileInputRef.current.value = '';
     }
   };
 
   const handleDelete = (projectId: string, projectTitle: string) => {
-    if (!window.confirm(`确定删除《${projectTitle}》吗？此操作只会移除本地项目记录。`)) return;
+    if (!window.confirm(t('deleteProjectConfirm', { title: projectTitle }))) return;
     deleteLocalProject(projectId);
     refreshProjects();
   };
 
   const handleRename = async (project: OpenFMVProject) => {
-    const nextTitle = window.prompt('输入新的项目名称', project.title)?.trim();
+    const nextTitle = window.prompt(t('renameProjectPrompt'), project.title)?.trim();
     if (!nextTitle || nextTitle === project.title) return;
     await saveLocalProject({ ...project, title: nextTitle });
     refreshProjects();
@@ -236,7 +239,7 @@ export default function LocalProjectsClient() {
     await saveLocalProject({
       ...project,
       id: crypto.randomUUID(),
-      title: `${project.title} 副本`,
+      title: t('copyTitle', { title: project.title }),
       createdAt: timestamp,
       updatedAt: timestamp,
       graphData: {
@@ -263,7 +266,7 @@ export default function LocalProjectsClient() {
       refreshProjects();
     } catch (error) {
       console.error('导入素材失败:', error);
-      alert('导入素材失败');
+      alert(assetsT('importFailed'));
     } finally {
       setIsImportingAssets(false);
       if (assetFileInputRef.current) assetFileInputRef.current.value = '';
@@ -271,7 +274,7 @@ export default function LocalProjectsClient() {
   };
 
   const handleDeleteAsset = async (project: OpenFMVProject, asset: OpenFMVAsset) => {
-    if (!window.confirm(`确定从《${project.title}》移除素材「${asset.name}」吗？`)) return;
+    if (!window.confirm(t('deleteAssetConfirm', { projectTitle: project.title, assetName: asset.name }))) return;
     try {
       await saveLocalProject({
         ...project,
@@ -280,7 +283,7 @@ export default function LocalProjectsClient() {
       refreshProjects();
     } catch (error) {
       console.error('删除素材失败:', error);
-      alert('删除素材失败');
+      alert(t('deleteAssetFailed'));
     }
   };
 
@@ -298,7 +301,7 @@ export default function LocalProjectsClient() {
             const className = `flex h-[56px] w-full items-center gap-4 rounded-[10px] px-5 text-left text-base font-semibold transition ${isActive ? 'bg-[radial-gradient(circle_at_0%_50%,rgba(125,211,252,0.16),transparent_42%),rgba(255,255,255,0.07)] text-white' : 'text-white hover:bg-white/[0.045]'}`;
             return (
               <button
-                key={item.label}
+                key={item.labelKey}
                 type="button"
                 onClick={() => {
                   setActiveView(item.action);
@@ -306,7 +309,7 @@ export default function LocalProjectsClient() {
                 className={className}
               >
                 <Icon size={22} />
-                <span>{item.label}</span>
+                <span>{t(`sidebar.${item.labelKey}`)}</span>
               </button>
             );
           })}
@@ -322,14 +325,14 @@ export default function LocalProjectsClient() {
                   <div>
                     <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-openfmv-muted">
                       <PackageOpen size={15} className="text-white/45" />
-                      Asset Library
+                      {assetsT('eyebrow')}
                     </div>
-                    <h1 className="mt-3 text-[32px] font-bold text-white">素材库</h1>
-                    <div className="mt-2 text-sm text-openfmv-muted">{filteredAssets.length} 个素材 · {projectTotal} 个项目</div>
+                    <h1 className="mt-3 text-[32px] font-bold text-white">{t('assetLibraryTitle')}</h1>
+                    <div className="mt-2 text-sm text-openfmv-muted">{t('assetLibrarySummary', { assets: filteredAssets.length, projects: projectTotal })}</div>
                   </div>
                   <button type="button" onClick={() => assetFileInputRef.current?.click()} disabled={!selectedProject || isImportingAssets} className="inline-flex h-11 items-center gap-2 rounded-[12px] border border-white/10 bg-white/[0.08] px-5 text-sm font-semibold text-white transition hover:bg-white/[0.12] disabled:cursor-not-allowed disabled:opacity-45">
                     <Upload size={17} />
-                    {isImportingAssets ? '导入中' : '导入素材'}
+                    {isImportingAssets ? assetsT('importing') : assetsT('importAsset')}
                   </button>
                 </section>
 
@@ -337,22 +340,22 @@ export default function LocalProjectsClient() {
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div className="flex flex-wrap gap-2">
                       {assetFilters.map((item) => (
-                        <button key={item.value} type="button" onClick={() => setAssetFilter(item.value)} className={`h-10 rounded-[12px] px-4 text-sm font-semibold transition ${assetFilter === item.value ? 'bg-white/[0.12] text-white' : 'bg-white/[0.045] text-openfmv-sub hover:bg-white/[0.07] hover:text-white'}`}>
-                          {item.label}
+                        <button key={item} type="button" onClick={() => setAssetFilter(item)} className={`h-10 rounded-[12px] px-4 text-sm font-semibold transition ${assetFilter === item ? 'bg-white/[0.12] text-white' : 'bg-white/[0.045] text-openfmv-sub hover:bg-white/[0.07] hover:text-white'}`}>
+                          {assetsT(`filter.${item}`)}
                         </button>
                       ))}
                     </div>
                     <div className="flex min-w-0 items-center gap-2">
                       <select value={selectedProjectId} onChange={(event) => setSelectedProjectId(event.target.value)} className="h-10 w-[190px] rounded-[12px] border border-white/10 bg-white/[0.055] px-3 text-sm text-white outline-none">
                         {projects.length === 0 ? (
-                          <option value="">暂无项目</option>
+                          <option value="">{assetsT('noProjects')}</option>
                         ) : projects.map((project) => (
                           <option key={project.id} value={project.id}>{project.title}</option>
                         ))}
                       </select>
                       <div className="relative min-w-0 md:w-[360px]">
                         <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-openfmv-muted" />
-                        <input value={assetQuery} onChange={(event) => setAssetQuery(event.target.value)} placeholder="搜索素材或项目" className="h-10 w-full rounded-[12px] border border-white/10 bg-white/[0.055] pl-10 pr-3 text-sm text-white outline-none placeholder:text-openfmv-muted" />
+                        <input value={assetQuery} onChange={(event) => setAssetQuery(event.target.value)} placeholder={t('searchAssetsOrProjects')} className="h-10 w-full rounded-[12px] border border-white/10 bg-white/[0.055] pl-10 pr-3 text-sm text-white outline-none placeholder:text-openfmv-muted" />
                       </div>
                     </div>
                   </div>
@@ -363,11 +366,11 @@ export default function LocalProjectsClient() {
                         <div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-[16px] border border-white/12 bg-white/[0.08] text-openfmv-muted">
                           <ImageIcon size={28} />
                         </div>
-                        <div className="text-lg font-semibold text-white">暂无素材</div>
-                        <p className="mt-2 text-sm leading-7 text-openfmv-muted">导入图片、视频、音频或文本后，会在这里按项目集中管理。</p>
+                        <div className="text-lg font-semibold text-white">{assetsT('noAssetsYet')}</div>
+                        <p className="mt-2 text-sm leading-7 text-openfmv-muted">{t('assetEmptyDescription')}</p>
                         <button type="button" onClick={() => assetFileInputRef.current?.click()} disabled={!selectedProject} className="mt-5 inline-flex h-10 items-center gap-2 rounded-[12px] border border-white/10 bg-white/[0.08] px-5 text-sm font-semibold text-white transition hover:bg-white/[0.12] disabled:opacity-45">
                           <Upload size={16} />
-                          导入素材
+                          {assetsT('importAsset')}
                         </button>
                       </div>
                     </div>
@@ -378,7 +381,7 @@ export default function LocalProjectsClient() {
                         const src = resolveMediaSrc(asset.path);
                         return (
                           <article key={`${project.id}-${asset.id}`} className="group relative min-w-0">
-                            <Link href={getAssetStudioHref(project.id, asset.id)} className="relative grid aspect-[4/3] place-items-center overflow-hidden rounded-[12px] border border-white/10 bg-white/[0.055] transition group-hover:border-white/25">
+                            <Link href={getAssetStudioHref(locale, project.id, asset.id)} className="relative grid aspect-[4/3] place-items-center overflow-hidden rounded-[12px] border border-white/10 bg-white/[0.055] transition group-hover:border-white/25">
                               {asset.type === 'image' ? (
                                 <img src={src} alt={asset.name} className="h-full w-full object-cover transition group-hover:scale-105" />
                               ) : asset.type === 'video' ? (
@@ -388,7 +391,7 @@ export default function LocalProjectsClient() {
                                   <div className="mb-3 grid h-9 w-9 place-items-center rounded-[12px] border border-white/10 bg-white/[0.08] text-white/75">
                                     <Icon size={20} />
                                   </div>
-                                  <p className="line-clamp-4 text-sm leading-6 text-openfmv-sub">{getTextPreview(asset) || '暂无文本预览'}</p>
+                                  <p className="line-clamp-4 text-sm leading-6 text-openfmv-sub">{getTextPreview(asset) || assetsT('noTextPreview')}</p>
                                 </div>
                               ) : (
                                 <Icon size={30} className="text-white/75" />
@@ -398,19 +401,19 @@ export default function LocalProjectsClient() {
                               type="button"
                               onClick={() => void handleDeleteAsset(project, asset)}
                               className="absolute right-2 top-2 z-20 flex h-8 w-8 items-center justify-center rounded-[10px] border border-white/10 bg-black/55 text-white/75 shadow-[0_12px_28px_rgba(0,0,0,0.28)] backdrop-blur-xl transition hover:border-red-400/45 hover:bg-red-500/15 hover:text-red-300"
-                              title="删除素材"
+                              title={assetsT('removeAsset')}
                             >
                               <Trash2 size={14} />
                             </button>
                             <div className="mt-3 min-w-0">
-                              <Link href={getAssetStudioHref(project.id, asset.id)} className="block truncate text-sm font-semibold text-white transition hover:text-white/80">{asset.name}</Link>
+                              <Link href={getAssetStudioHref(locale, project.id, asset.id)} className="block truncate text-sm font-semibold text-white transition hover:text-white/80">{asset.name}</Link>
                               <div className="mt-1 flex items-center gap-2 text-xs text-openfmv-muted">
                                 <Clock3 size={12} />
-                                <span suppressHydrationWarning>{formatAssetTime(asset.importedAt)}</span>
+                                <span suppressHydrationWarning>{formatAssetTime(asset.importedAt, locale, assetsT('justNow'))}</span>
                                 <span>·</span>
-                                <span className="truncate">{formatFileSize(asset.metadata?.size)}</span>
+                                <span className="truncate">{formatFileSize(asset.metadata?.size, assetsT('unknownSize'))}</span>
                               </div>
-                              <Link href={`/editor?id=${project.id}`} className="mt-1 block truncate text-xs text-openfmv-muted transition hover:text-white">{project.title}</Link>
+                              <Link href={getEditorHref(locale, project.id)} className="mt-1 block truncate text-xs text-openfmv-muted transition hover:text-white">{project.title}</Link>
                             </div>
                           </article>
                         );
@@ -427,21 +430,21 @@ export default function LocalProjectsClient() {
                   <span className="grid h-8 w-8 place-items-center rounded-[8px] bg-white/85 text-[#1b1b1b] shadow-[0_0_22px_rgba(103,232,249,0.22),0_8px_24px_rgba(0,0,0,0.22)]">
                     <Plus size={22} />
                   </span>
-                  开始创作
+                  {t('startCreating')}
                 </span>
               </button>
             </BorderGlow>
 
             <section className="mt-12">
-              <h2 className="text-[26px] font-bold text-white">产品特性</h2>
+              <h2 className="text-[26px] font-bold text-white">{t('featuresTitle')}</h2>
               <div className="mt-5 grid grid-cols-[repeat(auto-fit,minmax(min(100%,190px),1fr))] gap-5">
                 {upgradeCards.map((card) => (
-                  <BorderGlow key={card.title} className="h-[150px] overflow-hidden" edgeSensitivity={24} glowColor="190 82 74" backgroundColor="#1b1b1b" borderRadius={9} glowRadius={24} glowIntensity={0.42} coneSpread={20} colors={['#67e8f9', '#f0abfc', '#93c5fd']} fillOpacity={0.12}>
+                  <BorderGlow key={card.key} className="h-[150px] overflow-hidden" edgeSensitivity={24} glowColor="190 82 74" backgroundColor="#1b1b1b" borderRadius={9} glowRadius={24} glowIntensity={0.42} coneSpread={20} colors={['#67e8f9', '#f0abfc', '#93c5fd']} fillOpacity={0.12}>
                     <div className={`relative h-full overflow-hidden rounded-[9px] bg-gradient-to-br ${card.className}`}>
                       <div className="absolute inset-0 opacity-20 [background-image:linear-gradient(90deg,rgba(255,255,255,0.32)_1px,transparent_1px),linear-gradient(rgba(255,255,255,0.20)_1px,transparent_1px)] [background-size:24px_24px]" />
                       <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#202020]/95 to-transparent p-5">
-                        <div className="text-xl font-semibold text-white">{card.title}</div>
-                        <div className="mt-1 text-base text-white/55">{card.description}</div>
+                        <div className="text-xl font-semibold text-white">{t(`features.${card.key}.title`)}</div>
+                        <div className="mt-1 text-base text-white/55">{t(`features.${card.key}.description`)}</div>
                       </div>
                     </div>
                   </BorderGlow>
@@ -452,37 +455,37 @@ export default function LocalProjectsClient() {
             <section className="mt-12 scroll-mt-8">
               <div className="mb-7 flex items-center justify-between gap-5">
                 <div>
-                  <h2 className="text-[26px] font-bold text-white">本地草稿</h2>
-                  <div className="mt-1 text-sm text-openfmv-muted">{filteredProjects.length} 个项目 · {nodeTotal} 个节点 · {assetTotal} 个素材</div>
+                  <h2 className="text-[26px] font-bold text-white">{t('localDrafts')}</h2>
+                  <div className="mt-1 text-sm text-openfmv-muted">{t('draftSummary', { projects: filteredProjects.length, nodes: nodeTotal, assets: assetTotal })}</div>
                 </div>
                 {projects.length > 0 && (
                   <div className="flex items-center gap-3">
                     <div className="hidden overflow-hidden rounded-[12px] border border-white/10 bg-white/[0.06] lg:flex">
-                      <input value={title} onChange={(event) => setTitle(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') void handleCreate(); }} placeholder="项目名称" className="h-10 w-52 bg-transparent px-4 text-sm text-white outline-none placeholder:text-openfmv-muted" />
-                      <button onClick={() => void handleCreate()} className="px-4 text-sm font-semibold text-white transition hover:bg-white/[0.08]">创建</button>
+                      <input value={title} onChange={(event) => setTitle(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') void handleCreate(); }} placeholder={t('projectName')} className="h-10 w-52 bg-transparent px-4 text-sm text-white outline-none placeholder:text-openfmv-muted" />
+                      <button onClick={() => void handleCreate()} className="px-4 text-sm font-semibold text-white transition hover:bg-white/[0.08]">{t('create')}</button>
                     </div>
                     <div className="hidden items-center gap-1 rounded-[12px] border border-white/10 bg-white/[0.05] p-1 xl:flex">
-                      <button onClick={() => searchInputRef.current?.focus()} className="flex h-8 w-8 items-center justify-center rounded-[10px] text-openfmv-muted transition hover:bg-white/[0.08] hover:text-white" title="搜索">
+                      <button onClick={() => searchInputRef.current?.focus()} className="flex h-8 w-8 items-center justify-center rounded-[10px] text-openfmv-muted transition hover:bg-white/[0.08] hover:text-white" title={t('search')}>
                         <Search size={16} />
                       </button>
-                      <button onClick={() => setViewMode('grid')} className={`flex h-8 w-8 items-center justify-center rounded-[10px] transition ${viewMode === 'grid' ? 'bg-white/[0.12] text-white' : 'text-openfmv-muted hover:bg-white/[0.08] hover:text-white'}`} title="网格视图">
+                      <button onClick={() => setViewMode('grid')} className={`flex h-8 w-8 items-center justify-center rounded-[10px] transition ${viewMode === 'grid' ? 'bg-white/[0.12] text-white' : 'text-openfmv-muted hover:bg-white/[0.08] hover:text-white'}`} title={assetsT('gridView')}>
                         <Grid2X2 size={16} />
                       </button>
-                      <button onClick={() => setViewMode('list')} className={`flex h-8 w-8 items-center justify-center rounded-[10px] transition ${viewMode === 'list' ? 'bg-white/[0.12] text-white' : 'text-openfmv-muted hover:bg-white/[0.08] hover:text-white'}`} title="列表视图">
+                      <button onClick={() => setViewMode('list')} className={`flex h-8 w-8 items-center justify-center rounded-[10px] transition ${viewMode === 'list' ? 'bg-white/[0.12] text-white' : 'text-openfmv-muted hover:bg-white/[0.08] hover:text-white'}`} title={assetsT('listView')}>
                         <List size={16} />
                       </button>
-                      <button onClick={() => setSortMode(sortMode === 'recent' ? 'oldest' : 'recent')} className="flex h-8 w-8 items-center justify-center rounded-[10px] text-openfmv-muted transition hover:bg-white/[0.08] hover:text-white" title={sortMode === 'recent' ? '最近编辑优先' : '最早编辑优先'}>
+                      <button onClick={() => setSortMode(sortMode === 'recent' ? 'oldest' : 'recent')} className="flex h-8 w-8 items-center justify-center rounded-[10px] text-openfmv-muted transition hover:bg-white/[0.08] hover:text-white" title={sortMode === 'recent' ? t('recentFirst') : t('oldestFirst')}>
                         <Clock3 size={16} />
                       </button>
                     </div>
                     <button onClick={() => void handleOpenProject()} className="inline-flex h-10 items-center gap-2 rounded-[12px] border border-white/10 bg-white/[0.06] px-4 text-sm font-semibold text-openfmv-sub transition hover:border-white/25 hover:text-white">
                       <FileJson size={15} />
-                      导入项目
+                      {t('importProject')}
                     </button>
-                    <button onClick={() => setShowSettings(true)} className="inline-flex h-10 w-10 items-center justify-center rounded-[12px] border border-white/10 bg-white/[0.06] text-openfmv-sub transition hover:border-white/25 hover:text-white" title="设置">
+                    <button onClick={() => setShowSettings(true)} className="inline-flex h-10 w-10 items-center justify-center rounded-[12px] border border-white/10 bg-white/[0.06] text-openfmv-sub transition hover:border-white/25 hover:text-white" title={t('settings')}>
                       <Settings size={16} />
                     </button>
-                    <button className="hidden h-10 w-10 items-center justify-center rounded-[12px] text-openfmv-sub transition hover:bg-white/[0.06] hover:text-white md:inline-flex" title="更多">
+                    <button className="hidden h-10 w-10 items-center justify-center rounded-[12px] text-openfmv-sub transition hover:bg-white/[0.06] hover:text-white md:inline-flex" title={t('more')}>
                       <MoreHorizontal size={19} />
                     </button>
                   </div>
@@ -495,16 +498,16 @@ export default function LocalProjectsClient() {
                     <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-[18px] border border-white/12 bg-white/[0.08] text-openfmv-muted">
                       <Layout size={32} />
                     </div>
-                    <div className="text-xl font-semibold text-white">还没有故事草稿</div>
-                    <p className="mt-3 text-sm leading-7 text-openfmv-muted">创建第一个互动故事后，最近编辑的项目会显示在这里，方便继续进入节点画布。</p>
+                    <div className="text-xl font-semibold text-white">{t('noDrafts')}</div>
+                    <p className="mt-3 text-sm leading-7 text-openfmv-muted">{t('noDraftsDescription')}</p>
                     <div className="mt-6 flex justify-center gap-3">
                       <button onClick={() => void handleCreate()} className="inline-flex h-10 items-center gap-2 rounded-[12px] border border-white/10 bg-white/[0.08] px-5 text-sm font-semibold text-white transition hover:bg-white/[0.12]">
                         <Plus size={16} />
-                        新建故事
+                        {t('newStory')}
                       </button>
                       <button onClick={() => void handleOpenProject()} className="inline-flex h-10 items-center gap-2 rounded-[12px] border border-white/10 bg-white/[0.06] px-5 text-sm font-semibold text-openfmv-sub transition hover:border-white/25 hover:text-white">
                         <FileJson size={15} />
-                        导入项目
+                        {t('importProject')}
                       </button>
                     </div>
                   </div>
@@ -516,7 +519,7 @@ export default function LocalProjectsClient() {
                     const cover = getProjectCover(project);
                     return (
                       <article key={project.id} className="group relative min-w-0">
-                        <Link href={`/editor?id=${project.id}`} className="block">
+                        <Link href={getEditorHref(locale, project.id)} className="block">
                           <BorderGlow className="aspect-square overflow-hidden transition group-hover:-translate-y-1" edgeSensitivity={24} glowColor="198 80 76" backgroundColor="#1f1f1f" borderRadius={14} glowRadius={22} glowIntensity={0.34} coneSpread={20} colors={['#67e8f9', '#a5b4fc', '#f0abfc']} fillOpacity={0.1}>
                             <div className="relative h-full overflow-hidden rounded-[14px] bg-[radial-gradient(circle_at_30%_16%,rgba(125,211,252,0.10),transparent_32%),linear-gradient(135deg,rgba(255,255,255,0.10),rgba(255,255,255,0.035))]">
                               {cover ? (
@@ -531,20 +534,20 @@ export default function LocalProjectsClient() {
                             </div>
                           </BorderGlow>
                         </Link>
-                        <Link href={`/play/${project.id}`} className="absolute left-1/2 top-[90px] z-20 flex h-14 w-14 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-white/20 bg-black/45 text-white opacity-0 shadow-[0_16px_42px_rgba(0,0,0,0.36)] backdrop-blur-3xl transition hover:scale-105 hover:bg-white/15 group-hover:opacity-100" title="预览">
+                        <Link href={getPlayHref(locale, project.id)} className="absolute left-1/2 top-[90px] z-20 flex h-14 w-14 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-white/20 bg-black/45 text-white opacity-0 shadow-[0_16px_42px_rgba(0,0,0,0.36)] backdrop-blur-3xl transition hover:scale-105 hover:bg-white/15 group-hover:opacity-100" title={t('preview')}>
                           <Play size={22} fill="currentColor" className="ml-0.5" />
                         </Link>
                         <div className="absolute left-7 right-7 top-1 z-20 flex items-center justify-between opacity-0 transition group-hover:opacity-100">
-                          <button onClick={() => void handleRename(project)} className="flex h-8 w-8 items-center justify-center rounded-full bg-black/35 text-openfmv-sub backdrop-blur-3xl hover:text-white" title="重命名">
+                          <button onClick={() => void handleRename(project)} className="flex h-8 w-8 items-center justify-center rounded-full bg-black/35 text-openfmv-sub backdrop-blur-3xl hover:text-white" title={t('rename')}>
                             <Edit3 size={14} />
                           </button>
-                          <button onClick={() => void handleDuplicate(project)} className="flex h-8 w-8 items-center justify-center rounded-full bg-black/35 text-openfmv-sub backdrop-blur-3xl hover:text-white" title="复制项目">
+                          <button onClick={() => void handleDuplicate(project)} className="flex h-8 w-8 items-center justify-center rounded-full bg-black/35 text-openfmv-sub backdrop-blur-3xl hover:text-white" title={t('duplicate')}>
                             <Copy size={14} />
                           </button>
-                          <button onClick={() => exportProjectJson(project)} className="flex h-8 w-8 items-center justify-center rounded-full bg-black/35 text-openfmv-sub backdrop-blur-3xl hover:text-white" title="导出备份">
+                          <button onClick={() => exportProjectJson(project)} className="flex h-8 w-8 items-center justify-center rounded-full bg-black/35 text-openfmv-sub backdrop-blur-3xl hover:text-white" title={t('exportBackup')}>
                             <Download size={14} />
                           </button>
-                          <button onClick={() => handleDelete(project.id, project.title)} className="flex h-8 w-8 items-center justify-center rounded-full bg-black/35 text-openfmv-sub backdrop-blur-3xl hover:text-red-300" title="删除项目">
+                          <button onClick={() => handleDelete(project.id, project.title)} className="flex h-8 w-8 items-center justify-center rounded-full bg-black/35 text-openfmv-sub backdrop-blur-3xl hover:text-red-300" title={t('deleteProject')}>
                             <Trash2 size={14} />
                           </button>
                         </div>
@@ -552,9 +555,9 @@ export default function LocalProjectsClient() {
                           <div className="truncate text-base font-semibold text-white">{project.title}</div>
                           <div className="mt-1 flex items-center gap-1 text-xs text-openfmv-muted">
                             <Clock3 size={12} />
-                            <span suppressHydrationWarning>{formatProjectTime(project.updatedAt)}</span>
+                            <span suppressHydrationWarning>{formatProjectTime(project.updatedAt, locale, assetsT('justNow'))}</span>
                           </div>
-                          <div className="mt-1 truncate text-xs text-openfmv-muted">{stats.nodes} 节点 · {stats.assets} 素材</div>
+                          <div className="mt-1 truncate text-xs text-openfmv-muted">{t('projectCardStats', { nodes: stats.nodes, assets: stats.assets })}</div>
                         </div>
                       </article>
                     );
@@ -567,33 +570,33 @@ export default function LocalProjectsClient() {
                     const cover = getProjectCover(project);
                     return (
                       <article key={project.id} className="group flex items-center gap-4 p-4">
-                        <Link href={`/editor?id=${project.id}`} className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[18px] border border-white/10 bg-[radial-gradient(circle_at_30%_16%,rgba(255,255,255,0.11),transparent_32%),linear-gradient(135deg,rgba(255,255,255,0.10),rgba(255,255,255,0.035))] text-white/75 transition group-hover:border-white/25">
+                        <Link href={getEditorHref(locale, project.id)} className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[18px] border border-white/10 bg-[radial-gradient(circle_at_30%_16%,rgba(255,255,255,0.11),transparent_32%),linear-gradient(135deg,rgba(255,255,255,0.10),rgba(255,255,255,0.035))] text-white/75 transition group-hover:border-white/25">
                           {cover ? <img src={cover} alt={project.title} className="h-full w-full rounded-[18px] object-cover" /> : <Layout size={24} />}
                         </Link>
                         <div className="min-w-0 flex-1">
-                          <Link href={`/editor?id=${project.id}`} className="truncate text-base font-semibold text-white transition hover:text-white/80">{project.title}</Link>
+                          <Link href={getEditorHref(locale, project.id)} className="truncate text-base font-semibold text-white transition hover:text-white/80">{project.title}</Link>
                           <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-openfmv-muted">
-                            <span suppressHydrationWarning>{formatProjectTime(project.updatedAt)}</span>
-                            <span>{stats.nodes} 节点</span>
-                            <span>{stats.edges} 连线</span>
-                            <span>{stats.assets} 素材</span>
+                            <span suppressHydrationWarning>{formatProjectTime(project.updatedAt, locale, assetsT('justNow'))}</span>
+                            <span>{t('nodesCount', { count: stats.nodes })}</span>
+                            <span>{t('edgesCount', { count: stats.edges })}</span>
+                            <span>{t('assetsCount', { count: stats.assets })}</span>
                           </div>
                         </div>
                         <div className="flex shrink-0 items-center gap-2">
-                          <Link href={`/play/${project.id}`} className="inline-flex h-9 items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-4 text-sm font-semibold text-openfmv-sub transition hover:border-white/25 hover:text-white">
+                          <Link href={getPlayHref(locale, project.id)} className="inline-flex h-9 items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-4 text-sm font-semibold text-openfmv-sub transition hover:border-white/25 hover:text-white">
                             <Play size={14} />
-                            预览
+                            {t('preview')}
                           </Link>
-                          <button onClick={() => void handleRename(project)} className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.06] text-openfmv-sub transition hover:border-white/25 hover:text-white" title="重命名">
+                          <button onClick={() => void handleRename(project)} className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.06] text-openfmv-sub transition hover:border-white/25 hover:text-white" title={t('rename')}>
                             <Edit3 size={14} />
                           </button>
-                          <button onClick={() => void handleDuplicate(project)} className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.06] text-openfmv-sub transition hover:border-white/25 hover:text-white" title="复制项目">
+                          <button onClick={() => void handleDuplicate(project)} className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.06] text-openfmv-sub transition hover:border-white/25 hover:text-white" title={t('duplicate')}>
                             <Copy size={14} />
                           </button>
-                          <button onClick={() => exportProjectJson(project)} className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.06] text-openfmv-sub transition hover:border-white/25 hover:text-white" title="导出备份">
+                          <button onClick={() => exportProjectJson(project)} className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.06] text-openfmv-sub transition hover:border-white/25 hover:text-white" title={t('exportBackup')}>
                             <Download size={14} />
                           </button>
-                          <button onClick={() => handleDelete(project.id, project.title)} className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.06] text-openfmv-sub transition hover:border-red-400/45 hover:text-red-300" title="删除项目">
+                          <button onClick={() => handleDelete(project.id, project.title)} className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.06] text-openfmv-sub transition hover:border-red-400/45 hover:text-red-300" title={t('deleteProject')}>
                             <Trash2 size={14} />
                           </button>
                         </div>

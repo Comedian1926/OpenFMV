@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { ArrowRight, RotateCcw, X } from 'lucide-react';
 import { useResolvedMediaSrc } from '../../_hooks/useResolvedMediaSrc';
 import { usePlayerStore } from '../../_store/usePlayerStore';
@@ -49,6 +50,7 @@ const getEffect = <T extends RuntimeEffect['type']>(effects: RuntimeEffect[], ty
 };
 
 const InteractionControls = ({ effects, dispatch }: { effects: RuntimeEffect[]; dispatch: (event: RuntimeEvent) => void }) => {
+  const t = useTranslations('player');
   const choiceEffect = getEffect(effects, 'showChoices');
   const inputEffect = getEffect(effects, 'showInput');
   const sliderEffect = getEffect(effects, 'showSlider');
@@ -66,16 +68,19 @@ const InteractionControls = ({ effects, dispatch }: { effects: RuntimeEffect[]; 
   };
 
   const prompt = choiceEffect?.prompt || inputEffect?.prompt || sliderEffect?.prompt || '';
+  const inputPlaceholder = inputEffect?.placeholder === '输入你的回答...' ? t('answerPlaceholder') : inputEffect?.placeholder;
+  const sliderLabel = sliderEffect?.label === '滑动解锁' ? t('swipeUnlock') : sliderEffect?.label;
+  const continueLabel = continueEffect?.label === '继续' ? t('continue') : continueEffect?.label;
 
   return (
     <div className="w-full max-w-4xl">
       {prompt && <h2 className="mb-5 text-center text-2xl font-semibold text-white drop-shadow-lg md:text-3xl">{prompt}</h2>}
 
       {sliderEffect ? (
-        <div className="flex justify-center"><SwipeUnlock label={sliderEffect.label} onUnlock={() => dispatch({ type: 'slider.unlocked', input: 'unlocked', handleId: sliderEffect.handleId })} /></div>
+        <div className="flex justify-center"><SwipeUnlock label={sliderLabel} onUnlock={() => dispatch({ type: 'slider.unlocked', input: 'unlocked', handleId: sliderEffect.handleId })} /></div>
       ) : inputEffect ? (
         <div className="mx-auto flex max-w-xl items-center gap-2 rounded-full border border-white/15 bg-white/[0.12] p-2 shadow-[0_18px_60px_rgba(0,0,0,0.35)] backdrop-blur-3xl">
-          <input value={inputValue} onChange={(event) => setInputValue(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') submitInput(); }} placeholder={inputEffect.placeholder} className="min-w-0 flex-1 bg-transparent px-4 py-3 text-white outline-none placeholder-white/35" />
+          <input value={inputValue} onChange={(event) => setInputValue(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') submitInput(); }} placeholder={inputPlaceholder} className="min-w-0 flex-1 bg-transparent px-4 py-3 text-white outline-none placeholder-white/35" />
           <button onClick={submitInput} className="flex h-11 w-11 items-center justify-center rounded-full bg-openfmv-accent text-white transition hover:bg-openfmv-accent-hover"><ArrowRight size={18} /></button>
         </div>
       ) : choiceEffect ? (
@@ -88,7 +93,7 @@ const InteractionControls = ({ effects, dispatch }: { effects: RuntimeEffect[]; 
           ))}
         </div>
       ) : continueEffect ? (
-        <button onClick={() => dispatch({ type: 'continue' })} className="inline-flex items-center gap-2 rounded-full bg-openfmv-accent px-6 py-3 text-sm font-semibold text-white transition hover:bg-openfmv-accent-hover">{continueEffect.label}<ArrowRight size={16} /></button>
+        <button onClick={() => dispatch({ type: 'continue' })} className="inline-flex items-center gap-2 rounded-full bg-openfmv-accent px-6 py-3 text-sm font-semibold text-white transition hover:bg-openfmv-accent-hover">{continueLabel}<ArrowRight size={16} /></button>
       ) : null}
 
       {timerEffect && (
@@ -99,6 +104,7 @@ const InteractionControls = ({ effects, dispatch }: { effects: RuntimeEffect[]; 
 };
 
 export default function PlayerOverlay() {
+  const t = useTranslations('player');
   const { isPlaying, setIsPlaying, reset } = usePlayerStore();
   const runtimeGraph = useRuntimeGraphStore();
   const nodes = runtimeGraph.nodes;
@@ -135,8 +141,8 @@ export default function PlayerOverlay() {
   return (
     <div className="fixed inset-0 z-[100] bg-[linear-gradient(135deg,#090b10,#15110d)] text-white">
       <div className="absolute left-4 top-4 z-50 flex items-center gap-2">
-        <button onClick={closePlayer} className="flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.11] px-4 py-2 text-sm font-medium text-white/85 backdrop-blur-3xl transition hover:border-openfmv-accent/70 hover:text-white"><X size={16} />退出</button>
-        <button onClick={() => dispatch({ type: 'restart' })} className="flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.11] px-4 py-2 text-sm font-medium text-white/85 backdrop-blur-3xl transition hover:border-openfmv-accent/70 hover:text-white"><RotateCcw size={16} />重播</button>
+        <button onClick={closePlayer} className="flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.11] px-4 py-2 text-sm font-medium text-white/85 backdrop-blur-3xl transition hover:border-openfmv-accent/70 hover:text-white"><X size={16} />{t('exit')}</button>
+        <button onClick={() => dispatch({ type: 'restart' })} className="flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.11] px-4 py-2 text-sm font-medium text-white/85 backdrop-blur-3xl transition hover:border-openfmv-accent/70 hover:text-white"><RotateCcw size={16} />{t('replay')}</button>
       </div>
 
       <div className="absolute inset-0 bg-black">
@@ -149,12 +155,12 @@ export default function PlayerOverlay() {
         <div className="mx-auto w-full max-w-5xl">
           <div className="mb-8 max-w-3xl">
             <div className="mb-3 text-xs font-semibold uppercase tracking-[0.3em] text-openfmv-accent">{sceneEffect?.nodeType || snapshot.status}</div>
-            <h1 className="text-4xl font-semibold tracking-tight drop-shadow-2xl md:text-6xl">{sceneEffect?.title || '播放结束'}</h1>
+            <h1 className="text-4xl font-semibold tracking-tight drop-shadow-2xl md:text-6xl">{sceneEffect?.title || t('playEnded')}</h1>
             {sceneEffect?.text && <p className="mt-5 whitespace-pre-wrap text-base leading-8 text-white/86 drop-shadow-lg md:text-xl md:leading-9">{sceneEffect.text}</p>}
           </div>
 
           {snapshot.status === 'ended' || currentNode?.type === 'end' ? (
-            <button onClick={() => dispatch({ type: 'restart' })} className="inline-flex items-center gap-2 rounded-full bg-openfmv-accent px-6 py-3 text-sm font-semibold text-white transition hover:bg-openfmv-accent-hover"><RotateCcw size={16} />重新开始</button>
+            <button onClick={() => dispatch({ type: 'restart' })} className="inline-flex items-center gap-2 rounded-full bg-openfmv-accent px-6 py-3 text-sm font-semibold text-white transition hover:bg-openfmv-accent-hover"><RotateCcw size={16} />{t('restart')}</button>
           ) : (
             <InteractionControls effects={effects} dispatch={dispatch} />
           )}

@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { useTranslations } from 'next-intl';
 import {
   BaseEdge,
   EdgeLabelRenderer,
@@ -18,6 +19,7 @@ import { createEditorNode } from './canvas/nodeFactory';
 const EDGE_STYLE = { strokeWidth: 2, stroke: 'rgba(255,255,255,0.52)' } as const;
 
 export default function ComfyEdge(props: EdgeProps) {
+  const t = useTranslations('editor');
   const {
     id,
     source,
@@ -90,7 +92,7 @@ export default function ComfyEdge(props: EdgeProps) {
     });
   }, [edgeCurveStyle, sourcePosition, sourceX, sourceY, targetPosition, targetX, targetY]);
 
-  const handle删除Edge = React.useCallback(() => {
+  const handleDeleteEdge = React.useCallback(() => {
     const currentEdges = useEditorStore.getState().edges;
     setEdges(currentEdges.filter((edge) => edge.id !== id));
     setSelectingType(false);
@@ -103,7 +105,11 @@ export default function ComfyEdge(props: EdgeProps) {
     if (!currentEdge) return;
 
     const newNode = {
-      ...createEditorNode(nodeType, { x: labelX - 140, y: labelY - 56 }, state.nodes),
+      ...createEditorNode(nodeType, { x: labelX - 140, y: labelY - 56 }, state.nodes, {
+        startLabel: t('startNode'),
+        endLabel: t('endNode'),
+        storyTitlePrefix: t('storyTitlePrefix'),
+      }),
       style: { width: 280 },
     };
 
@@ -144,6 +150,7 @@ export default function ComfyEdge(props: EdgeProps) {
     sourceHandleId,
     target,
     targetHandleId,
+    t,
   ]);
 
   return (
@@ -206,7 +213,7 @@ export default function ComfyEdge(props: EdgeProps) {
                     setSelectingType(true);
                   }}
                 >
-                  添加节点
+                  {t('addNode')}
                 </button>
                 <button
                   type="button"
@@ -214,10 +221,10 @@ export default function ComfyEdge(props: EdgeProps) {
                   onMouseEnter={() => setSelectingType(false)}
                   onClick={(event) => {
                     event.stopPropagation();
-                    handle删除Edge();
+                    handleDeleteEdge();
                   }}
                 >
-                  删除
+                  {t('delete')}
                 </button>
 
                 {selectingType && (
@@ -232,7 +239,7 @@ export default function ComfyEdge(props: EdgeProps) {
                           handleInsertNode(definition.type);
                         }}
                       >
-                        {definition.displayName}
+                        {t(`nodeTypes.${definition.type}.name`)}
                       </button>
                     ))}
                   </div>

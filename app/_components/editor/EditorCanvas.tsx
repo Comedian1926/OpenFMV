@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useMemo, useCallback } from 'react';
+import { useTranslations } from 'next-intl';
 import {
   ReactFlow,
   Background,
@@ -28,7 +29,7 @@ import { isValidGraphConnection } from '@/app/_utils/graphRules';
 import { getPickerAssetUpdate, PickerAsset } from './canvas/assetBinding';
 import { edgeTypes, nodeTypes } from './canvas/flowTypes';
 import { EmptyCanvasPrompt, FileDropOverlay, PendingConnectMenu, PendingConnectMenuState } from './canvas/CanvasOverlays';
-import { createEditorNode, getAvailableNodePosition } from './canvas/nodeFactory';
+import { createEditorNode, EditorNodeDefaults, getAvailableNodePosition } from './canvas/nodeFactory';
 import {
   ConnectionStartState,
   createNodeDropConnection,
@@ -47,12 +48,12 @@ const toPickerAsset = (asset: OpenFMVAsset): PickerAsset => ({
   createdAt: new Date(asset.importedAt),
 });
 
-const createStoryNodeFromAsset = (asset: PickerAsset, position: { x: number; y: number }, currentNodes: AppNode[]): AppNode | null => {
+const createStoryNodeFromAsset = (asset: PickerAsset, position: { x: number; y: number }, currentNodes: AppNode[], fallbackTitle: string): AppNode | null => {
   if (asset.type === 'audio') return null;
 
   const node = createEditorNode('story', getAvailableNodePosition(position, currentNodes), currentNodes);
   const metadata = typeof asset.metadata === 'object' && asset.metadata ? asset.metadata as Record<string, unknown> : {};
-  const title = typeof metadata.title === 'string' ? metadata.title : asset.prompt || '素材剧情';
+  const title = typeof metadata.title === 'string' ? metadata.title : asset.prompt || fallbackTitle;
   const baseNode = {
     ...node,
     data: {
@@ -72,6 +73,8 @@ const createStoryNodeFromAsset = (asset: PickerAsset, position: { x: number; y: 
 };
 
 const EditorContent = ({ projectId }: { projectId?: string | null }) => {
+  const t = useTranslations('editor');
+  const assetsT = useTranslations('assets');
   const {
     nodes, 
     edges, 
@@ -126,6 +129,11 @@ const EditorContent = ({ projectId }: { projectId?: string | null }) => {
   const [pendingConnectMenu, setPendingConnectMenu] = React.useState<PendingConnectMenuState | null>(null);
   const [isFileDragging, setIsFileDragging] = React.useState(false);
   const skipNextPaneClickRef = React.useRef(false);
+  const nodeDefaults = useMemo<EditorNodeDefaults>(() => ({
+    startLabel: t('startNode'),
+    endLabel: t('endNode'),
+    storyTitlePrefix: t('storyTitlePrefix'),
+  }), [t]);
 
   const { screenToFlowPosition, getViewport, fitView, getNodes: _getNodes, getEdges } = useReactFlow();
   const getNodes = useCallback(() => _getNodes() as unknown as AppNode[], [_getNodes]);
@@ -186,17 +194,17 @@ const EditorContent = ({ projectId }: { projectId?: string | null }) => {
   }, [getNodes, getEdges, setNodes, setEdges, fitView]);
 
   const handleReset = useCallback(() => {
-    if (confirm('Reset the canvas? Unsaved changes will be lost.')) {
+    if (confirm(t('resetCanvasConfirm'))) {
         reset();
     }
-  }, [reset]);
+  }, [reset, t]);
 
   const handleClearCache = useCallback(() => {
-    if (confirm('Clear local cache? This removes locally saved editor data.')) {
+    if (confirm(t('clearLocalCacheConfirm'))) {
         localStorage.removeItem('openfmv-editor-storage');
         window.location.reload();
     }
-  }, []);
+  }, [t]);
 
   const handleAssetSelect = useCallback((asset: PickerAsset) => {
     if (targetNodeIdForAsset) {
@@ -214,11 +222,11 @@ const EditorContent = ({ projectId }: { projectId?: string | null }) => {
     const centerY = window.innerHeight / 2;
     const position = screenToFlowPosition({ x: centerX, y: centerY });
     const currentNodes = getNodes();
-    const newNode = createStoryNodeFromAsset(asset, position, currentNodes);
+    const newNode = createStoryNodeFromAsset(asset, position, currentNodes, t('assetStoryFallback'));
     if (newNode) addNode(newNode);
-    if (!newNode) alert('Audio was saved to the asset library. The canvas does not create audio nodes yet.');
+    if (!newNode) alert(assetsT('audioCannotBind'));
     setAssetPickerOpen(false);
-  }, [addNode, screenToFlowPosition, targetNodeIdForAsset, getNodes, updateNodeData, setAssetPickerOpen, setTargetNodeIdForAsset]);
+  }, [addNode, assetsT, screenToFlowPosition, targetNodeIdForAsset, getNodes, updateNodeData, setAssetPickerOpen, setTargetNodeIdForAsset, t]);
 
   const displayEdges = useMemo(
     () =>
@@ -237,8 +245,8 @@ const EditorContent = ({ projectId }: { projectId?: string | null }) => {
     let position = screenToFlowPosition({ x: centerX, y: centerY });
 
     const currentNodes = getNodes();
-    addNode(createEditorNode(type, getAvailableNodePosition(position, currentNodes), currentNodes));
-  }, [addNode, getViewport, screenToFlowPosition, getNodes]);
+    addNode(createEditorNode(type, getAvailableNodePosition(position, currentNodes), currentNodes, nodeDefaults));
+  }, [addNode, getViewport, screenToFlowPosition, getNodes, nodeDefaults]);
 
   const onDragOver = useCallback((event: React.DragEvent) => {
     event.preventDefault();
@@ -270,7 +278,7 @@ const EditorContent = ({ projectId }: { projectId?: string | null }) => {
           const newNode = createStoryNodeFromAsset(toPickerAsset(asset), {
             x: dropPosition.x + createdNodes.length * 34,
             y: dropPosition.y + createdNodes.length * 34,
-          }, [...getNodes(), ...createdNodes]);
+          }, [...getNodes(), ...createdNodes], t('assetStoryFallback'));
           if (!newNode) continue;
           createdNodes.push(newNode);
         }
@@ -278,7 +286,7 @@ const EditorContent = ({ projectId }: { projectId?: string | null }) => {
         createdNodes.forEach((node) => addNode(node));
 
         if (createdNodes.length < importedAssets.length) {
-          alert('Audio was saved to the asset library. The canvas does not create audio nodes yet.');
+          alert(assetsT('audioCannotBind'));
         }
         return;
       }
@@ -295,9 +303,9 @@ const EditorContent = ({ projectId }: { projectId?: string | null }) => {
       });
 
       const currentNodes = getNodes();
-      addNode(createEditorNode(type, getAvailableNodePosition(position, currentNodes), currentNodes));
+      addNode(createEditorNode(type, getAvailableNodePosition(position, currentNodes), currentNodes, nodeDefaults));
     },
-    [screenToFlowPosition, addNode, getNodes, currentProjectId],
+    [screenToFlowPosition, addNode, getNodes, currentProjectId, nodeDefaults, t, assetsT],
   );
 
   const connectionStartParams = React.useRef<ConnectionStartState>({ nodeId: null, handleId: null, handleType: null });
@@ -381,7 +389,7 @@ const EditorContent = ({ projectId }: { projectId?: string | null }) => {
         x: pendingConnectMenu.x,
         y: pendingConnectMenu.y,
       });
-      const newNode = createEditorNode(type, getAvailableNodePosition(position, currentNodes), currentNodes);
+      const newNode = createEditorNode(type, getAvailableNodePosition(position, currentNodes), currentNodes, nodeDefaults);
 
       if (pendingConnectMenu.kind === 'connect') {
         const connection = createPendingNodeConnection(newNode.id, pendingConnectMenu.nodeId, pendingConnectMenu.handleId, pendingConnectMenu.handleType);
@@ -403,7 +411,7 @@ const EditorContent = ({ projectId }: { projectId?: string | null }) => {
 
       setPendingConnectMenu(null);
     },
-    [pendingConnectMenu, getNodes, getEdges, screenToFlowPosition, addNodeAndConnect, addNode, setEdges]
+    [pendingConnectMenu, getNodes, getEdges, screenToFlowPosition, addNodeAndConnect, addNode, setEdges, nodeDefaults]
   );
 
   const onReconnect = useCallback(

@@ -1,7 +1,9 @@
 import type { Metadata, Viewport } from 'next';
+import { NextIntlClientProvider } from 'next-intl';
 import './globals.css';
 import 'tldraw/tldraw.css';
-import AppWindowFrame from './_components/local/AppWindowFrame';
+
+import enMessages from '@/messages/en.json';
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -26,7 +28,9 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body>
-        <AppWindowFrame>{children}</AppWindowFrame>
+        <NextIntlClientProvider locale="en" messages={enMessages}>
+          {children}
+        </NextIntlClientProvider>
       </body>
     </html>
   );

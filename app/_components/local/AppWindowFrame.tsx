@@ -2,16 +2,20 @@
 
 import React, { PointerEvent, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { Settings } from 'lucide-react';
 
 import AppNavigation from './AppNavigation';
 import InteractionDesignView from './InteractionDesignView';
 import OpenFMVAiSettingsCenter from './OpenFMVAiSettingsCenter';
+import { stripLocaleFromPath } from '@/app/_utils/localePaths';
 
 type ResizeDirection = 'top' | 'right' | 'bottom' | 'left' | 'top-left' | 'top-right' | 'bottom-right' | 'bottom-left';
 
 export default function AppWindowFrame({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const t = useTranslations('settings');
+  const pathWithoutLocale = stripLocaleFromPath(pathname || '/');
   const [showSettings, setShowSettings] = useState(false);
   const [showChat, setShowChat] = useState(false);
   const [chatFloating, setChatFloating] = useState(false);
@@ -148,7 +152,7 @@ export default function AppWindowFrame({ children }: { children: React.ReactNode
     </>
   ) : null;
 
-  if (pathname?.startsWith('/asset-studio')) {
+  if (pathWithoutLocale.startsWith('/asset-studio')) {
     return (
       <div className="relative h-[100dvh] overflow-hidden bg-[#111] text-openfmv-text">
         <AppNavigation chatOpen={showChat} onToggleChat={toggleChat} />
@@ -177,7 +181,7 @@ export default function AppWindowFrame({ children }: { children: React.ReactNode
       <AppNavigation chatOpen={showChat} onToggleChat={toggleChat} />
       <div className="relative h-[calc(100dvh-3.5rem)] overflow-hidden">
         {children}
-        <button type="button" onClick={() => setShowSettings(true)} className="absolute bottom-5 left-6 z-[120] flex h-10 w-10 items-center justify-center rounded-[12px] border border-white/10 bg-white/[0.055] text-white/75 shadow-[0_12px_38px_rgba(0,0,0,0.28)] backdrop-blur-2xl transition hover:bg-white/[0.09] hover:text-white" title="Settings">
+        <button type="button" onClick={() => setShowSettings(true)} className="absolute bottom-5 left-6 z-[120] flex h-10 w-10 items-center justify-center rounded-[12px] border border-white/10 bg-white/[0.055] text-white/75 shadow-[0_12px_38px_rgba(0,0,0,0.28)] backdrop-blur-2xl transition hover:bg-white/[0.09] hover:text-white" title={t('open')}>
           <Settings size={19} />
         </button>
         {showChat && (

@@ -1,11 +1,22 @@
 import React, { act } from 'react';
 import { createRoot, Root } from 'react-dom/client';
+import { NextIntlClientProvider } from 'next-intl';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import OpenFMVAiSettingsCenter from '@/app/_components/local/OpenFMVAiSettingsCenter';
 import { OpenFMVAgentInfo, OpenFMVAiConfig } from '@/app/_types';
 import { getDefaultOpenFMVAiConfig, normalizeOpenFMVAiConfig } from '@/app/_utils/aiSettings';
+import messages from '@/messages/zh-CN.json';
 import { OpenFMVBridge } from '@/shared/ipc-contract';
+
+vi.mock('next/navigation', () => ({
+  usePathname: () => '/zh-CN/projects',
+  useRouter: () => ({
+    replace: vi.fn(),
+    refresh: vi.fn(),
+  }),
+  useSearchParams: () => new URLSearchParams(),
+}));
 
 let container: HTMLDivElement;
 let root: Root;
@@ -18,7 +29,11 @@ const renderSettings = async () => {
   document.body.appendChild(container);
   root = createRoot(container);
   await act(async () => {
-    root.render(<OpenFMVAiSettingsCenter onClose={vi.fn()} />);
+    root.render(
+      <NextIntlClientProvider locale="zh-CN" messages={messages}>
+        <OpenFMVAiSettingsCenter onClose={vi.fn()} />
+      </NextIntlClientProvider>
+    );
   });
   await act(async () => {
     await Promise.resolve();

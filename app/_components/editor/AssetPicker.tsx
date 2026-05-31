@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { ChevronLeft, FileText, Image as ImageIcon, Music, Plus, Search, Upload, Video, X } from 'lucide-react';
 
 import { useResolvedMediaSrc } from '@/app/_hooks/useResolvedMediaSrc';
@@ -25,12 +26,12 @@ interface ProjectAsset {
   projectTitle: string;
 }
 
-const assetFilters: Array<{ label: string; value: AssetFilter }> = [
-  { label: 'All', value: 'all' },
-  { label: 'Images', value: 'image' },
-  { label: 'Videos', value: 'video' },
-  { label: 'Text', value: 'text' },
-  { label: 'Audio', value: 'audio' },
+const assetFilters: AssetFilter[] = [
+  'all',
+  'image',
+  'video',
+  'text',
+  'audio',
 ];
 
 const getTextPreview = (asset: OpenFMVAsset) => {
@@ -58,6 +59,7 @@ const AssetPreview = ({ asset }: { asset: OpenFMVAsset }) => {
 };
 
 export default function AssetPicker({ isOpen, onClose, onSelect }: AssetPickerProps) {
+  const t = useTranslations('assets');
   const inputRef = useRef<HTMLInputElement>(null);
   const currentProjectId = useEditorStore((state) => state.currentProjectId);
   const [isImporting, setIsImporting] = useState(false);
@@ -99,13 +101,13 @@ export default function AssetPicker({ isOpen, onClose, onSelect }: AssetPickerPr
 
   const persistAssetToCurrentProject = async (asset: OpenFMVAsset) => {
     const savedProject = await addAssetToLocalProject(currentProjectId, asset);
-    if (!savedProject) throw new Error('Select or create a project before importing assets.');
+    if (!savedProject) throw new Error(t('selectProjectBeforeImport'));
     refreshProjectAssets();
   };
 
   const selectAsset = (asset: OpenFMVAsset) => {
     if (asset.type === 'audio') {
-      alert('Audio assets are saved but cannot be bound directly to this node.');
+      alert(t('audioCannotBind'));
       return;
     }
     onSelect(toPickerAsset(asset));
@@ -117,7 +119,7 @@ export default function AssetPicker({ isOpen, onClose, onSelect }: AssetPickerPr
     await persistAssetToCurrentProject(asset);
     if (asset.type === 'audio') {
       refreshProjectAssets();
-      alert('Audio assets are saved but cannot be bound directly to this node.');
+      alert(t('audioCannotBind'));
       return;
     }
     selectAsset(asset);
@@ -131,7 +133,7 @@ export default function AssetPicker({ isOpen, onClose, onSelect }: AssetPickerPr
       await importAsset(await importAssetFromFile(file));
     } catch (error) {
       console.error('Failed to import local asset', error);
-      alert(isStorageQuotaError(error) ? 'Import failed: browser storage quota exceeded.' : error instanceof Error ? error.message : 'Failed to import local asset');
+      alert(isStorageQuotaError(error) ? t('quotaExceeded') : error instanceof Error ? error.message : t('importFailed'));
     } finally {
       setIsImporting(false);
       if (inputRef.current) inputRef.current.value = '';
@@ -149,7 +151,7 @@ export default function AssetPicker({ isOpen, onClose, onSelect }: AssetPickerPr
       await importAsset(await importAssetFromNativePicker());
     } catch (error) {
       console.error('Failed to import local asset', error);
-      alert(error instanceof Error ? error.message : 'Failed to import local asset');
+      alert(error instanceof Error ? error.message : t('importFailed'));
     } finally {
       setIsImporting(false);
     }
@@ -163,23 +165,23 @@ export default function AssetPicker({ isOpen, onClose, onSelect }: AssetPickerPr
     <div className="pointer-events-none fixed inset-0 z-[90]">
       <div className="pointer-events-auto absolute bottom-5 left-5 top-24 flex w-[390px] flex-col overflow-hidden rounded-[22px] border border-white/10 bg-[#171717]/96 shadow-[0_30px_120px_rgba(0,0,0,0.58)] backdrop-blur-3xl">
         <div className="flex items-center gap-3 border-b border-white/10 px-4 py-4">
-          <Button type="button" onClick={onClose} variant="icon" size="compactIcon" className="rounded-full" title="Back">
+          <Button type="button" onClick={onClose} variant="icon" size="compactIcon" className="rounded-full" title={t('back')}>
             <ChevronLeft size={19} />
           </Button>
-          <h2 className="min-w-0 flex-1 text-xl font-semibold text-white">Assets</h2>
+          <h2 className="min-w-0 flex-1 text-xl font-semibold text-white">{t('title')}</h2>
           {useNativeAssetPicker ? (
             <Button type="button" onClick={() => void handleChooseFile()} disabled={isImporting} variant="glass" size="sm">
               <Plus size={17} />
-              {isImporting ? 'Importing' : 'Import'}
+              {isImporting ? t('importing') : t('import')}
             </Button>
           ) : (
             <label className={`${importButtonClassName} ${isImporting ? 'pointer-events-none opacity-50' : 'cursor-pointer'}`}>
               <Plus size={17} />
-              {isImporting ? 'Importing' : 'Import'}
+              {isImporting ? t('importing') : t('import')}
               <input ref={inputRef} type="file" accept="image/*,video/*,audio/*,.txt,.md" className="sr-only" onChange={(event) => { void handleFiles(event.target.files); }} />
             </label>
           )}
-          <Button type="button" onClick={onClose} variant="icon" size="compactIcon" title="Close">
+          <Button type="button" onClick={onClose} variant="icon" size="compactIcon" title={t('close')}>
             <X size={18} />
           </Button>
         </div>
@@ -187,10 +189,10 @@ export default function AssetPicker({ isOpen, onClose, onSelect }: AssetPickerPr
         <div className="space-y-4 border-b border-white/10 p-4">
           <div className="grid grid-cols-2 rounded-[16px] border border-white/10 bg-white/[0.06] p-1">
             <Button type="button" variant="ghost" size="sm" className="h-9 rounded-[12px] bg-white/[0.16] text-sm font-semibold text-white">
-              Assets
+              {t('title')}
             </Button>
             <Button type="button" variant="ghost" size="sm" className="h-9 rounded-[12px] text-sm font-semibold text-openfmv-muted">
-              Library
+              {t('library')}
             </Button>
           </div>
           <div className="relative">
@@ -198,21 +200,21 @@ export default function AssetPicker({ isOpen, onClose, onSelect }: AssetPickerPr
             <Input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search assets"
+              placeholder={t('searchAssets')}
               className="h-12 rounded-[18px] border-white/10 bg-black/20 pl-11 text-white placeholder:text-openfmv-muted focus-visible:ring-white/20"
             />
           </div>
           <div className="flex flex-wrap gap-2">
             {assetFilters.map((item) => (
               <Button
-                key={item.value}
+                key={item}
                 type="button"
-                onClick={() => setFilter(item.value)}
+                onClick={() => setFilter(item)}
                 variant="glass"
                 size="sm"
-                className={filter === item.value ? 'border-white/20 bg-white/[0.16] text-white' : 'border-white/10 bg-white/[0.04] text-openfmv-muted'}
+                className={filter === item ? 'border-white/20 bg-white/[0.16] text-white' : 'border-white/10 bg-white/[0.04] text-openfmv-muted'}
               >
-                {item.label}
+                {t(`filter.${item}`)}
               </Button>
             ))}
           </div>
@@ -226,11 +228,11 @@ export default function AssetPicker({ isOpen, onClose, onSelect }: AssetPickerPr
               <div className="mb-4 grid h-14 w-14 place-items-center rounded-[18px] border border-white/10 bg-white/[0.08] text-openfmv-sub">
                 <Upload size={25} />
               </div>
-              <div className="text-base font-semibold text-white">No assets yet</div>
-              <p className="mt-2 text-sm leading-6 text-openfmv-muted">Import images, video, audio, or text to bind them to editor nodes.</p>
+              <div className="text-base font-semibold text-white">{t('noAssetsYet')}</div>
+              <p className="mt-2 text-sm leading-6 text-openfmv-muted">{t('noAssetsYetDescription')}</p>
               <Button type="button" onClick={() => void handleChooseFile()} disabled={isImporting} variant="glass" size="default" className="mt-5 text-white">
                 <Upload size={16} />
-                {isImporting ? 'Importing' : 'Import asset'}
+                {isImporting ? t('importing') : t('importAsset')}
               </Button>
             </div>
           ) : (
@@ -248,9 +250,9 @@ export default function AssetPicker({ isOpen, onClose, onSelect }: AssetPickerPr
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-sm font-semibold text-white">{asset.name}</div>
-                    <div className="mt-1 truncate text-xs text-openfmv-muted">{asset.type === 'text' ? getTextPreview(asset) || 'Text asset' : `${asset.type} asset`} / {projectTitle}</div>
+                    <div className="mt-1 truncate text-xs text-openfmv-muted">{asset.type === 'text' ? getTextPreview(asset) || t('textAsset') : t('assetTypeLabel', { type: t(`type.${asset.type}`) })} / {projectTitle}</div>
                   </div>
-                  <div className="rounded-full border border-white/10 px-2 py-1 text-[10px] font-semibold uppercase text-openfmv-muted">{asset.type}</div>
+                  <div className="rounded-full border border-white/10 px-2 py-1 text-[10px] font-semibold uppercase text-openfmv-muted">{t(`type.${asset.type}`)}</div>
                 </Button>
               ))}
             </div>

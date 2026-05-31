@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { useTranslations } from 'next-intl';
 import { AlertTriangle, Loader2 } from 'lucide-react';
 
 import {
@@ -25,6 +26,7 @@ export function DeleteAssetModal({
   onClose,
   onConfirm,
 }: DeleteAssetModalProps) {
+  const t = useTranslations('assets.modal');
   const [isDeleting, setIsDeleting] = React.useState(false);
 
   const handleConfirm = async () => {
@@ -45,19 +47,19 @@ export function DeleteAssetModal({
         <AlertDialogHeader>
           <AlertDialogTitle className="flex items-center gap-2">
             <AlertTriangle className="h-5 w-5 text-red-400" />
-            删除资产
+            {t('deleteTitle')}
           </AlertDialogTitle>
           <AlertDialogDescription className="text-openfmv-sub">
-            确定要删除这个资产吗？此操作无法撤销，该资产会被永久删除。
+            {t('deleteDescription')}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel onClick={onClose} disabled={isDeleting}>
-            取消
+            {t('cancel')}
           </AlertDialogCancel>
           <Button variant="destructive" onClick={handleConfirm} disabled={isDeleting}>
             {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            {isDeleting ? '删除中' : '确认删除'}
+            {isDeleting ? t('deleting') : t('confirmDelete')}
           </Button>
         </AlertDialogFooter>
       </AlertDialogContent>

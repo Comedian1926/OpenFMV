@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useLocale, useTranslations } from 'next-intl';
 import { Check, Clock3, Download, Loader2, Play, Settings } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
 import { useEditorStore } from '@/app/_store/useEditorStore';
@@ -16,6 +17,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { useClickOutside } from '@/app/_hooks/useClickOutside';
 
 export default function TopBar() {
+  const locale = useLocale();
+  const t = useTranslations('editor');
   const { nodes, edges, setNodes, setEdges, autoSaveEnabled, setAutoSaveEnabled, edgeCurveStyle, setEdgeCurveStyle, setCurrentProjectId } = useEditorStore();
   const { setIsPlaying, setCurrentNode, reset } = usePlayerStore();
   const { setGraph } = useRuntimeGraphStore();
@@ -23,7 +26,7 @@ export default function TopBar() {
   const projectId = searchParams.get('id');
   const initialTitleFromQuery = searchParams.get('title')?.trim();
   const [project, setProject] = useState<OpenFMVProject | null>(null);
-  const [title, setTitle] = useState(initialTitleFromQuery || '未命名项目');
+  const [title, setTitle] = useState(initialTitleFromQuery || t('untitledProject'));
   const [isSaving, setIsSaving] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [exportStatus, setExportStatus] = useState('');
@@ -45,12 +48,12 @@ export default function TopBar() {
   }, []);
 
   const saveStatus = !autoSaveEnabled
-    ? { label: '自动保存暂停', icon: Clock3, className: 'text-openfmv-muted', spin: false }
+    ? { label: t('autoSavePaused'), icon: Clock3, className: 'text-openfmv-muted', spin: false }
     : isSaving
-    ? { label: '保存中', icon: Loader2, className: 'text-sky-200', spin: true }
+    ? { label: t('saving'), icon: Loader2, className: 'text-sky-200', spin: true }
     : hasUnsavedChanges
-      ? { label: '自动保存中', icon: Clock3, className: 'text-orange-200', spin: false }
-      : { label: '已自动保存', icon: Check, className: 'text-emerald-200', spin: false };
+      ? { label: t('autoSaving'), icon: Clock3, className: 'text-orange-200', spin: false }
+      : { label: t('autoSaved'), icon: Check, className: 'text-emerald-200', spin: false };
   const SaveStatusIcon = saveStatus.icon;
 
   useEffect(() => {
@@ -82,11 +85,11 @@ export default function TopBar() {
       setHasUnsavedChanges(false);
     } catch (error) {
       console.error('Failed to save local project', error);
-      alert('保存本地项目失败');
+      alert(t('saveLocalFailed'));
     } finally {
       setIsSaving(false);
     }
-  }, [edges, nodes, project, setCurrentProjectId, title]);
+  }, [edges, nodes, project, setCurrentProjectId, t, title]);
 
   const handleSaveAs = useCallback(async () => {
     if (!window.openfmv?.selectDirectory) {
@@ -114,11 +117,11 @@ export default function TopBar() {
       setHasUnsavedChanges(false);
     } catch (error) {
       console.error('Failed to save local project as', error);
-      alert('另存本地项目失败');
+      alert(t('saveAsFailed'));
     } finally {
       setIsSaving(false);
     }
-  }, [edges, handleSave, nodes, project, setCurrentProjectId, title]);
+  }, [edges, handleSave, nodes, project, setCurrentProjectId, t, title]);
 
   useEffect(() => {
     if (isFirstGraphChange.current) {
@@ -153,14 +156,14 @@ export default function TopBar() {
 
   const handleExport = async () => {
     if (!window.openfmv?.exportGame || !window.openfmv?.selectDirectory) {
-      showExportStatus('导出 EXE 需要在 OpenFMV 桌面端中使用');
-      alert('导出 EXE 需要在 OpenFMV 桌面端中使用。Web 调试页不能打包可执行文件。');
+      showExportStatus(t('desktopExportRequired'));
+      alert(t('desktopExportRequiredDetail'));
       return;
     }
 
     const latestProject = project?.id ? getLocalProject(project.id) : null;
     const nextProject = createProjectSnapshot(project, title, nodes, edges, latestProject?.assets);
-    showExportStatus('正在导出...');
+    showExportStatus(t('exporting'));
     setIsExporting(true);
     try {
       const savedProject = await saveLocalProject(nextProject);
@@ -170,16 +173,17 @@ export default function TopBar() {
       await window.openfmv.exportGame(savedProject, {
         gameTitle: savedProject.title,
         outputDirectory,
+        locale,
         entryNodeId: savedProject.metadata.entryNodeId,
         windowMode: 'windowed',
         resolution: { width: 1280, height: 720 },
         includeDebugOverlay: false,
       });
-      showExportStatus('游戏导出完成');
-      alert('游戏导出完成');
+      showExportStatus(t('exportComplete'));
+      alert(t('exportComplete'));
     } catch (error) {
       console.error('Failed to export game', error);
-      alert('导出游戏失败');
+      alert(t('exportFailed'));
     } finally {
       setIsExporting(false);
     }
@@ -195,38 +199,38 @@ export default function TopBar() {
       </div>
 
       <div className="pointer-events-auto flex items-center gap-1.5 md:gap-2">
-        <div className="hidden h-9 items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.09] px-3 text-xs text-openfmv-sub shadow-[0_10px_34px_rgba(0,0,0,0.26)] backdrop-blur-2xl md:flex" title={lastSaved ? `最近保存：${lastSaved.toLocaleTimeString()}` : '自动保存已开启'} suppressHydrationWarning>
+        <div className="hidden h-9 items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.09] px-3 text-xs text-openfmv-sub shadow-[0_10px_34px_rgba(0,0,0,0.26)] backdrop-blur-2xl md:flex" title={lastSaved ? t('lastSaved', { time: lastSaved.toLocaleTimeString() }) : t('autoSaveEnabled')} suppressHydrationWarning>
           <SaveStatusIcon size={12} className={`${saveStatus.className} ${saveStatus.spin ? 'animate-spin' : ''}`} />
           <span className={saveStatus.className}>{saveStatus.label}</span>
         </div>
 
         <div className="relative" ref={settingsRef}>
-          <Button onClick={() => setIsSettingsOpen((value) => !value)} variant="icon" size="icon" className={`h-9 w-9 rounded-full border border-white/10 bg-white/[0.09] shadow-[0_10px_34px_rgba(0,0,0,0.26)] backdrop-blur-2xl ${isSettingsOpen ? 'text-openfmv-accent' : 'text-openfmv-sub'}`} title="设置">
+          <Button onClick={() => setIsSettingsOpen((value) => !value)} variant="icon" size="icon" className={`h-9 w-9 rounded-full border border-white/10 bg-white/[0.09] shadow-[0_10px_34px_rgba(0,0,0,0.26)] backdrop-blur-2xl ${isSettingsOpen ? 'text-openfmv-accent' : 'text-openfmv-sub'}`} title={t('settings')}>
             <Settings size={16} />
           </Button>
 
           {isSettingsOpen && (
             <div className="absolute right-0 top-full z-50 mt-3 w-64 overflow-hidden rounded-[22px] border border-white/15 bg-white/[0.10] p-2 shadow-[0_24px_80px_rgba(0,0,0,0.42)] backdrop-blur-3xl">
               <div className="rounded-2xl px-3 py-2">
-                <div className="text-sm text-openfmv-text">自动保存</div>
-                <div className="mt-1 text-xs leading-5 text-openfmv-muted">{autoSaveEnabled ? '已开启，编辑后会自动保存。' : '已暂停，建议重新开启。'}</div>
+                <div className="text-sm text-openfmv-text">{t('autoSave')}</div>
+                <div className="mt-1 text-xs leading-5 text-openfmv-muted">{autoSaveEnabled ? t('autoSaveOnDescription') : t('autoSaveOffDescription')}</div>
               </div>
               <Button onClick={() => setAutoSaveEnabled(!autoSaveEnabled)} variant="ghost" className="w-full justify-start rounded-2xl px-3 py-2 text-sm text-openfmv-text hover:bg-white/[0.045]">
-                {autoSaveEnabled ? '暂停自动保存' : '开启自动保存'}
+                {autoSaveEnabled ? t('pauseAutoSave') : t('enableAutoSave')}
               </Button>
               <Button onClick={() => { setIsSettingsOpen(false); void handleSaveAs(); }} variant="ghost" className="mt-1 w-full justify-start rounded-2xl px-3 py-2 text-sm text-openfmv-text hover:bg-white/[0.045]">
-                另存到指定目录
+                {t('saveAs')}
               </Button>
               <div className="mt-1 rounded-2xl px-3 py-2 hover:bg-white/[0.045]">
-                <div className="mb-2 text-sm text-openfmv-text">连线样式</div>
+                <div className="mb-2 text-sm text-openfmv-text">{t('edgeStyle')}</div>
                 <Select value={edgeCurveStyle} onValueChange={(value) => setEdgeCurveStyle(value as 'smoothstep' | 'bezier' | 'straight')}>
                   <SelectTrigger className="nodrag h-9 rounded-2xl border-white/15 bg-white/[0.08] text-xs text-openfmv-text">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent className="border-white/15 bg-openfmv-node text-openfmv-text">
-                    <SelectItem value="smoothstep">平滑折线</SelectItem>
-                    <SelectItem value="bezier">贝塞尔曲线</SelectItem>
-                    <SelectItem value="straight">直线</SelectItem>
+                    <SelectItem value="smoothstep">{t('smoothStep')}</SelectItem>
+                    <SelectItem value="bezier">{t('bezier')}</SelectItem>
+                    <SelectItem value="straight">{t('straight')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -236,12 +240,12 @@ export default function TopBar() {
 
         <Button onClick={handlePlay} size="pill" className="h-9 bg-white/[0.12] px-3.5 text-sm text-white shadow-[0_10px_34px_rgba(0,0,0,0.26)] backdrop-blur-2xl hover:bg-white/[0.18]">
           <Play size={14} fill="currentColor" />
-          预览
+          {t('preview')}
         </Button>
 
         <Button onClick={() => void handleExport()} disabled={isExporting} variant="outline" size="pill" className="h-9 border-white/10 bg-white/[0.09] px-3.5 text-sm text-openfmv-sub shadow-[0_10px_34px_rgba(0,0,0,0.26)] backdrop-blur-2xl hover:border-white/20 hover:bg-white/[0.14] hover:text-white">
           {isExporting ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
-          <span className="hidden sm:inline">导出</span>
+          <span className="hidden sm:inline">{t('export')}</span>
         </Button>
         {exportStatus && (
           <div className="absolute right-4 top-[58px] z-50 max-w-[360px] truncate rounded-[12px] border border-emerald-300/20 bg-black/72 px-3 py-2 text-xs font-medium text-emerald-100 shadow-[0_18px_50px_rgba(0,0,0,0.35)] backdrop-blur-2xl" title={exportStatus}>
